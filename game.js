@@ -242,6 +242,34 @@
     return scene.textures.exists(safeKey) ? safeKey : `fallback_${safeKey}`;
   }
 
+  // صور الحمام الخارجية (PNG) — تُحمَّل من assets/images/ في PreloadScene.
+  // لاستبدال أي رسم لاحقاً: ضع الملف بنفس الاسم فوق الصورة البديلة، دون تغيير الكود.
+  const BATH_IMAGES = Object.freeze({
+    bathroom_bg: 'bathroom_bg.png',
+    bathtub_back: 'bathtub_back.png',
+    bathtub_front: 'bathtub_front.png',
+    shower: 'shower.png',
+    soap: 'soap.png',
+    towel: 'towel.png',
+    baby_standing: 'baby_standing.png',     // الطفل خارج الحوض (قبل السحب)
+    baby_character: 'baby_character.png',   // الطفل داخل الحوض (بعد الإفلات)
+    bubble_particle: 'bubble_particle.png', // جزيء فقاعة الرغوة
+    water_surface: 'water_surface.png'      // شريحة سطح الماء
+  });
+
+  // الصورة الخارجية إن وُجدت، وإلا الرسم الاحتياطي المولّد في BootScene (أو null)
+  function bathTexture(scene, key, fallback = null) {
+    if (scene.textures.exists(key)) return key;
+    return fallback && scene.textures.exists(fallback) ? fallback : null;
+  }
+
+  // تبديل صورة الطفل داخل الحمام مع الحفاظ على حجم العرض (setTexture يُبقي المقياس القديم)
+  // ويحدّث منطقة اللمس لتطابق الصورة الجديدة إن كان الطفل قابلاً للسحب
+  function setBathBabyArt(baby, key, width = 190, height = 254) {
+    baby.setTexture(key).setDisplaySize(width, height);
+    if (baby.input && baby.input.hitArea) baby.input.hitArea.setSize(baby.width, baby.height);
+  }
+
   function createBaby(scene, x, y, key, width = 180, height = 240) {
     return scene.add.image(x, y, characterTexture(scene, key))
       .setDisplaySize(width, height)
@@ -492,6 +520,12 @@
       makeBabyFallback('fallback_baby_boy', 0x4FC3F7, 0x29B6F6);
       makeBabyFallback('fallback_baby_girl', 0xF48FB1, 0xF06292);
 
+      // بديل جزيء الفقاعة (يُستخدم فقط إذا لم توجد bubble_particle.png)
+      graphics.clear();
+      graphics.fillStyle(0xFFFFFF, 0.9);
+      graphics.fillCircle(32, 32, 30);
+      graphics.generateTexture('fallback_bubble_particle', 64, 64);
+
       const furniture = (key, width, height, draw) => {
         graphics.clear();
         draw(graphics);
@@ -553,15 +587,17 @@
         g.fillRoundedRect(0, 42, 360, 170, 28);
         g.fillStyle(0xE0F7FA, 1);
         g.fillRoundedRect(16, 56, 328, 126, 22);
-        g.fillStyle(0x80DEEA, 0.75);
-        g.fillRoundedRect(24, 118, 312, 56, 18);
         g.fillStyle(0xB0BEC5, 1);
         g.fillCircle(303, 31, 17);
         g.fillRoundedRect(294, 2, 18, 38, 8);
-        g.fillStyle(0xFFFFFF, 0.9);
-        g.fillCircle(75, 102, 12);
-        g.fillCircle(105, 87, 10);
-        g.fillCircle(129, 108, 8);
+      });
+
+      // رأس الدش (أداة الشطف) — يُسحب فوق الطفل في طور الشطف
+      furniture('item_shower', 120, 150, g => {
+        g.fillStyle(0x90A4AE, 1); g.fillRoundedRect(52, 0, 16, 62, 6);
+        g.fillStyle(0xB0BEC5, 1); g.fillEllipse(60, 92, 96, 56);
+        g.fillStyle(0x78909C, 1);
+        for (let i = 0; i < 5; i++) g.fillCircle(30 + i * 15, 100, 4);
       });
 
       furniture('furniture_toys', 260, 190, g => {
@@ -625,6 +661,8 @@
       this.load.on('loaderror', file => console.warn(`Could not load ${file.src}; using the built-in character fallback.`));
       this.load.image('baby_boy', './public/assets/characters/baby-boy.svg');
       this.load.image('baby_girl', './public/assets/characters/baby-girl.svg');
+      // صور الحمام الخارجية (PNG) من assets/images/
+      Object.entries(BATH_IMAGES).forEach(([key, file]) => this.load.image(key, `./assets/images/${file}`));
       this.load.once('complete', () => progressText.setText('أهلاً بك!'));
     }
 
@@ -875,11 +913,13 @@
       }
 
       this.buildRoomArt();
-      addButton(this, {
-        x: CONFIG.WIDTH / 2, y: 925, width: 520, height: 78,
-        label: this.room.actionLabel, color: 0x4CAF50, border: 0x388E3C, fontSize: 26,
-        onClick: () => this.performRoomAction()
-      });
+      if (this.hasActionButton()) {
+        addButton(this, {
+          x: CONFIG.WIDTH / 2, y: 925, width: 520, height: 78,
+          label: this.room.actionLabel, color: 0x4CAF50, border: 0x388E3C, fontSize: 26,
+          onClick: () => this.performRoomAction()
+        });
+      }
       addButton(this, {
         x: 142, y: 1014, width: 210, height: 58, label: '🏠  البيت',
         color: 0xFF7043, border: 0xE64A19, fontSize: 21,
@@ -898,6 +938,8 @@
     getBabyPosition() {
       return { x: 960, y: 660 };
     }
+
+    hasActionButton() { return true; }
 
     buildRoomArt() {}
 
@@ -962,16 +1004,420 @@
     }
   }
 
+  // ============ BATHROOM — guided bath ============
+  // الخطوات بالترتيب: ENTER (سحب الطفل إلى الحوض) → FILL (ملء الماء بالصنبور)
+  // → SOAP (فرك الطفل بالصابون) → RINSE (شطف بالدش) → DONE (مكافأة واحدة)
+  const BATH_STEP = Object.freeze({ ENTER: 'ENTER', FILL: 'FILL', SOAP: 'SOAP', RINSE: 'RINSE', DONE: 'DONE' });
+
+  // إحداثيات الحمام (مرجع 1920×1080). الحوض مرسوم 590×378 عند (1320, 650).
+  const BATH_LAYOUT = Object.freeze({
+    floor: { x: 860, y: 665 },          // موقف الطفل على الأرض
+    seat: { x: 1320, y: 573 },          // مقعد الطفل داخل الحوض
+    rimY: 655,                          // حافة الواجهة الأمامية: جسم الطفل تحتها يُقصّ
+    dropZone: { x: 1320, y: 600, width: 600, height: 340 },
+    water: { left: 1060, right: 1580, emptyTop: 700, fullTop: 600, bottom: 700 },
+    faucet: { x: 1521, y: 512, radius: 56 },
+    soapHome: { x: 520, y: 550 },
+    showerHome: { x: 330, y: 360 },
+    fillPerSecond: 25,                  // ملء كامل خلال ~4 ثوانٍ من الضغط المستمر
+    scrubPerPx: 100 / 2400,             // ~2400px من الفرك = 100%
+    rinsePerPx: 100 / 2000,             // ~2000px من الشطف = 100%
+    minStepPx: 1.5,                     // تجاهل الاهتزاز الدقيق
+    maxStepPx: 80                       // تجاهل القفزات غير الواقعية
+  });
+
+  const BATH_LABELS = Object.freeze({
+    ENTER: 'اسحب الطفل إلى داخل الحوض',
+    FILL: 'اضغط مطولاً على الصنبور لملء الحوض',
+    SOAP: 'اسحب الصابون وافرك جسم الطفل',
+    RINSE: 'اسحب رأس الدش فوق الطفل لشطف الرغوة',
+    DONE: 'أحسنت! الطفل نظيف ومنتعش 🛁'
+  });
+
   class BathroomScene extends CareRoomScene {
     constructor() { super(ROOMS[2]); }
-    getBabyPosition() { return { x: 860, y: 665 }; }
+
+    getBabyPosition() { return { x: BATH_LAYOUT.floor.x, y: BATH_LAYOUT.floor.y }; }
+
+    // لا يوجد زر "وقت الاستحمام" الفوري: الاستحمام يتم عبر الخطوات
+    hasActionButton() { return false; }
+
     buildRoomArt() {
-      this.makeInteractiveImage(1320, 650, 'furniture_bathtub', 590, 378, () => this.performRoomAction());
-      this.makeInteractiveImage(520, 550, 'item_soap', 144, 106, () => this.performRoomAction());
-      this.add.text(520, 625, 'صابون الفقاعات', { fontSize: '21px', fontFamily: 'Arial', color: '#514C53', fontStyle: 'bold' }).setOrigin(0.5).setDepth(6);
-      const bubbles = this.add.graphics().setDepth(6);
-      bubbles.fillStyle(0xFFFFFF, 0.7);
-      [[1140, 500, 19], [1190, 455, 14], [1245, 510, 22], [1365, 480, 15], [1430, 515, 18]].forEach(([x, y, r]) => bubbles.fillCircle(x, y, r));
+      const L = BATH_LAYOUT;
+      this.step = BATH_STEP.ENTER;
+      this.inTub = false;
+      this.progress = 0;          // تقدم الخطوة الحالية 0..100
+      this.waterLevel = 0;        // مستوى الماء 0..100 (يبقى ممتلئاً بعد الملء)
+      this.holdingFaucet = false;
+      this.dragPrev = null;
+      this.foam = [];
+      this.foamPeak = 0;
+
+      // إيقاف نبضة الطفل الافتراضية حتى لا تتعارض مع السحب
+      this.tweens.killTweensOf(this.baby);
+
+      // صورتا الطفل: واقفاً خارج الحوض، وجالساً داخله (بديل: رسم الشخصية المختار)
+      const fallbackBaby = characterTexture(this, this.save.get().selectedCharacter);
+      this.babyStandKey = bathTexture(this, 'baby_standing', fallbackBaby);
+      this.babyTubKey = bathTexture(this, 'baby_character', fallbackBaby);
+      setBathBabyArt(this.baby, this.babyStandKey);
+
+      // قصّ جسم الطفل عند حافة الحوض (مفعّل فقط وهو داخل الحوض)
+      const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
+      maskShape.fillStyle(0xffffff);
+      maskShape.fillRect(0, 0, CONFIG.WIDTH, L.rimY);
+      this.babyMask = maskShape.createGeometryMask();
+
+      // الحوض الفارغ (بدون ماء أو فقاعات)
+      // ترتيب الطبقات: خلفية 0.5 < الجزء الخلفي للحوض 7 < الماء 7.5 < الطفل 8 (مقصوص بالحافة)
+      //               < الواجهة الأمامية للحوض 9 (تغطي أسفل الطفل والماء)
+      const bgKey = bathTexture(this, 'bathroom_bg');
+      if (bgKey) {
+        // فوق رسم الخلفية الافتراضي (عمق 0) وتحت كل العناصر الأخرى
+        this.add.image(CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2, bgKey)
+          .setDisplaySize(CONFIG.WIDTH, CONFIG.HEIGHT).setDepth(0.5);
+      }
+      this.add.image(1320, 650, bathTexture(this, 'bathtub_back', 'furniture_bathtub'))
+        .setDisplaySize(590, 378).setDepth(7);
+      this.water = this.add.graphics().setDepth(7.5);
+      // شريحة سطح الماء (PNG) — تُمدّ بعرض الحوض الداخلي وتتحرك مع مستوى الماء
+      const surfaceKey = bathTexture(this, 'water_surface');
+      this.waterSurface = surfaceKey
+        ? this.add.image(1320, 700, surfaceKey).setDisplaySize(L.water.right - L.water.left, 24).setDepth(7.6).setVisible(false)
+        : null;
+      const tubFrontKey = bathTexture(this, 'bathtub_front');
+      if (tubFrontKey) {
+        this.add.image(1320, 650, tubFrontKey).setDisplaySize(590, 378).setDepth(9);
+      }
+      const towelKey = bathTexture(this, 'towel');
+      if (towelKey) {
+        // منشفة معلّقة على الحائط (زينة فقط — لا تفاعل لها في هذا الحمام)
+        this.add.image(1775, 340, towelKey).setDisplaySize(150, 170).setDepth(5);
+      }
+      this.stream = this.add.graphics().setDepth(8.6);
+      this.dropEllipse = new Phaser.Geom.Ellipse(L.dropZone.x, L.dropZone.y, L.dropZone.width, L.dropZone.height);
+
+      // الصنبور: منطقة ضغط مستمر (تعمل فقط في طور الملء)
+      this.faucetZone = this.add.zone(L.faucet.x, L.faucet.y, L.faucet.radius * 2, L.faucet.radius * 2)
+        .setDepth(9)
+        .setInteractive({ useHandCursor: true });
+      this.faucetZone.on('pointerdown', () => { if (this.step === BATH_STEP.FILL) this.holdingFaucet = true; });
+
+      // الطفل: قابل للسحب (يُعطَّل بعد الإفلات داخل الحوض)
+      this.baby.setInteractive({ useHandCursor: true, draggable: true });
+      this.input.setDraggable(this.baby);
+
+      // الصابون ورأس الدش: أدوات سحب (تُفعَّل حسب الخطوة)
+      this.soap = this.add.image(L.soapHome.x, L.soapHome.y, bathTexture(this, 'soap', 'item_soap'))
+        .setDisplaySize(144, 106).setDepth(12)
+        .setInteractive({ useHandCursor: true, draggable: true });
+      this.shower = this.add.image(L.showerHome.x, L.showerHome.y, bathTexture(this, 'shower', 'item_shower'))
+        .setDisplaySize(120, 150).setDepth(12)
+        .setInteractive({ useHandCursor: true, draggable: true });
+      this.add.text(L.soapHome.x, 625, 'صابون الفقاعات', {
+        fontSize: '21px', fontFamily: 'Arial', color: '#514C53', fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(6);
+      this.add.text(L.showerHome.x, 455, 'رأس الدش', {
+        fontSize: '21px', fontFamily: 'Arial', color: '#514C53', fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(6);
+
+      // تعليمة الخطوة + شريط التقدم
+      this.stepLabel = this.add.text(960, 850, '', {
+        fontSize: '32px', fontFamily: 'Arial', color: '#3E3A43', fontStyle: 'bold',
+        backgroundColor: '#FFFFFFD9', padding: { x: 22, y: 10 }
+      }).setOrigin(0.5).setDepth(100);
+      this.barBg = this.add.graphics().setDepth(100);
+      this.barFill = this.add.graphics().setDepth(101);
+
+      // أحداث السحب على مستوى المشهد — تُفلتر حسب الكائن داخل المعالجات
+      this.bathOnDragStart = (pointer, obj) => this.handleDragStart(pointer, obj);
+      this.bathOnDrag = (pointer, obj, x, y) => this.handleDrag(pointer, obj, x, y);
+      this.bathOnDragEnd = (pointer, obj) => this.handleDragEnd(pointer, obj);
+      this.bathOnPointerUp = () => { this.holdingFaucet = false; this.game.canvas.style.cursor = ''; };
+      this.input.on('dragstart', this.bathOnDragStart);
+      this.input.on('drag', this.bathOnDrag);
+      this.input.on('dragend', this.bathOnDragEnd);
+      this.input.on('pointerup', this.bathOnPointerUp);
+      this.events.once('shutdown', () => this.cleanupBath());
+
+      this.enterStep(BATH_STEP.ENTER);
+    }
+
+    // ------------------------------------------------------------------------
+    // الأطوار
+    // ------------------------------------------------------------------------
+    enterStep(step) {
+      const L = BATH_LAYOUT;
+      const previous = this.step;
+      this.step = step;
+      this.progress = 0;
+      this.holdingFaucet = false;
+      this.stream.clear();
+      // الأداة قد تُعطَّل في منتصف السحب فلا يصل dragend — نعيد المؤشر هنا
+      this.game.canvas.style.cursor = '';
+
+      if (previous === BATH_STEP.SOAP && step !== BATH_STEP.SOAP) this.returnHome(this.soap, L.soapHome);
+      if (previous === BATH_STEP.RINSE && step !== BATH_STEP.RINSE) this.returnHome(this.shower, L.showerHome);
+
+      this.baby.input.enabled = step === BATH_STEP.ENTER;
+      this.soap.input.enabled = step === BATH_STEP.SOAP;
+      this.shower.input.enabled = step === BATH_STEP.RINSE;
+
+      if (step === BATH_STEP.FILL) {
+        this.waterLevel = 0;
+        this.baby.setMask(this.babyMask);
+      }
+      if (step === BATH_STEP.DONE) this.finishBath();
+
+      this.stepLabel.setText(BATH_LABELS[step]);
+      this.drawWater();
+      this.updateProgressBar();
+    }
+
+    finishStep(step) {
+      if (step === BATH_STEP.FILL) this.enterStep(BATH_STEP.SOAP);
+      else if (step === BATH_STEP.SOAP) this.enterStep(BATH_STEP.RINSE);
+      else if (step === BATH_STEP.RINSE) this.enterStep(BATH_STEP.DONE);
+    }
+
+    setProgress(value) {
+      this.progress = Math.min(100, Math.max(0, value));
+      if (this.step === BATH_STEP.FILL) {
+        this.waterLevel = this.progress;
+        this.drawWater();
+      }
+      if (this.step === BATH_STEP.RINSE) this.trimFoam(1 - this.progress / 100);
+      this.updateProgressBar();
+      if (this.progress >= 100 && (this.step === BATH_STEP.FILL || this.step === BATH_STEP.SOAP || this.step === BATH_STEP.RINSE)) {
+        this.finishStep(this.step);
+      }
+    }
+
+    update(_time, delta) {
+      if (this.step !== BATH_STEP.FILL) return;
+      const L = BATH_LAYOUT;
+      this.stream.clear();
+      if (!this.holdingFaucet) return;
+
+      // تدفق الماء من الصنبور حتى سطح الماء الحالي
+      const top = L.faucet.y + 40;
+      const surface = this.waterSurfaceY();
+      this.stream.fillStyle(0x9BDCF5, 0.9);
+      this.stream.fillRect(L.faucet.x - 9, top, 18, Math.max(0, surface - top));
+
+      this.setProgress(this.progress + (delta / 1000) * L.fillPerSecond);
+    }
+
+    // ------------------------------------------------------------------------
+    // السحب والإفلات
+    // ------------------------------------------------------------------------
+    isDragTarget(obj) {
+      if (obj === this.baby) return this.step === BATH_STEP.ENTER;
+      if (obj === this.soap) return this.step === BATH_STEP.SOAP;
+      if (obj === this.shower) return this.step === BATH_STEP.RINSE;
+      return false;
+    }
+
+    handleDragStart(pointer, obj) {
+      if (obj !== this.baby && obj !== this.soap && obj !== this.shower) return;
+      this.tweens.killTweensOf(obj);
+      this.dragPrev = { x: obj.x, y: obj.y };
+      if (this.isDragTarget(obj)) this.game.canvas.style.cursor = 'grabbing';
+    }
+
+    handleDrag(pointer, obj, x, y) {
+      if (!this.isDragTarget(obj)) return;
+      obj.setPosition(x, y);
+      if (obj === this.baby) return;
+
+      const L = BATH_LAYOUT;
+      const over = this.isOverBaby(x, y);
+      this.game.canvas.style.cursor = over ? 'copy' : 'grabbing';
+      if (over) this.baby.setTint(0xFFF59D); else this.baby.clearTint();
+
+      const prev = this.dragPrev || { x, y };
+      const dist = Phaser.Math.Distance.Between(prev.x, prev.y, x, y);
+      this.dragPrev = { x, y };
+      if (!over || dist < L.minStepPx || dist > L.maxStepPx) return;
+
+      if (obj === this.soap && this.step === BATH_STEP.SOAP) {
+        this.addFoam(x, y);
+        this.setProgress(this.progress + dist * L.scrubPerPx);
+      } else if (obj === this.shower && this.step === BATH_STEP.RINSE) {
+        this.spawnDrops(x, y);
+        this.setProgress(this.progress + dist * L.rinsePerPx);
+      }
+    }
+
+    handleDragEnd(pointer, obj) {
+      if (obj !== this.baby && obj !== this.soap && obj !== this.shower) return;
+      this.game.canvas.style.cursor = '';
+      this.baby.clearTint();
+      this.dragPrev = null;
+
+      if (obj === this.baby) {
+        this.dropBaby();
+        return;
+      }
+      // الصابون ورأس الدش يعودان إلى مكانهما بعد الإفلات
+      this.returnHome(obj, obj === this.soap ? BATH_LAYOUT.soapHome : BATH_LAYOUT.showerHome);
+    }
+
+    dropBaby() {
+      if (this.step !== BATH_STEP.ENTER) return;
+      const L = BATH_LAYOUT;
+      const baby = this.baby;
+
+      if (Phaser.Geom.Ellipse.Contains(this.dropEllipse, baby.x, baby.y)) {
+        // ✅ إفلات صحيح داخل منطقة الحوض: جلوس ثم بدء طور الملء
+        baby.input.enabled = false;
+        this.tweens.add({
+          targets: baby, x: L.seat.x, y: L.seat.y, duration: 300, ease: 'Sine.easeOut',
+          onComplete: () => {
+            this.inTub = true;
+            setBathBabyArt(this.baby, this.babyTubKey);   // الطفل يجلس داخل الحوض
+            this.enterStep(BATH_STEP.FILL);
+          }
+        });
+      } else {
+        // ❌ خارج الحوض: عودة الطفل إلى الأرض مع تنبيه
+        this.tweens.add({
+          targets: baby, x: L.floor.x, y: L.floor.y, duration: 350, ease: 'Back.easeOut'
+        });
+        showToast(this, 'ضع الطفل داخل الحوض أولاً 🛁');
+      }
+    }
+
+    returnHome(obj, home) {
+      this.tweens.add({ targets: obj, x: home.x, y: home.y, duration: 350, ease: 'Back.easeOut' });
+    }
+
+    isOverBaby(x, y) {
+      const b = this.baby.getBounds();
+      // الجزء المرئي فقط: ما تحت حافة الحوض مقصوص
+      const bottom = this.inTub ? Math.min(b.bottom, BATH_LAYOUT.rimY) : b.bottom;
+      return Phaser.Geom.Rectangle.Contains(new Phaser.Geom.Rectangle(b.x, b.y, b.width, bottom - b.y), x, y);
+    }
+
+    // ------------------------------------------------------------------------
+    // الماء والرغوة والشطف (مرئيات فقط — التقدم يأتي من الأطوار)
+    // ------------------------------------------------------------------------
+    waterSurfaceY() {
+      const w = BATH_LAYOUT.water;
+      return w.emptyTop + (w.fullTop - w.emptyTop) * (this.waterLevel / 100);
+    }
+
+    drawWater() {
+      const w = BATH_LAYOUT.water;
+      const top = this.waterSurfaceY();
+      this.water.clear();
+      const hasWater = w.bottom - top >= 2;
+      if (this.waterSurface) this.waterSurface.setVisible(hasWater).setY(top + 4);
+      if (!hasWater) return;
+      this.water.fillStyle(0x80DEEA, 0.75);
+      this.water.fillRoundedRect(w.left, top, w.right - w.left, w.bottom - top, 18);
+      // بديل الخط اللامع عند غياب water_surface.png
+      if (!this.waterSurface) {
+        this.water.fillStyle(0xFFFFFF, 0.35);
+        this.water.fillRoundedRect(w.left + 10, top + 4, w.right - w.left - 20, 6, 3);
+      }
+    }
+
+    addFoam(pointerX, pointerY) {
+      if (this.foam.length >= 40) return;
+      const b = this.baby.getBounds();
+      const x = Phaser.Math.Clamp(pointerX + Phaser.Math.Between(-45, 45), b.left + 10, b.right - 10);
+      const y = Phaser.Math.Clamp(pointerY + Phaser.Math.Between(-35, 35), b.top + 10, BATH_LAYOUT.rimY - 10);
+      const size = Phaser.Math.Between(24, 44);   // قطر الفقاعة بالبكسل
+      const bubble = this.add.image(x, y, bathTexture(this, 'bubble_particle', 'fallback_bubble_particle'))
+        .setDisplaySize(size, size)
+        .setAlpha(0.9)
+        .setDepth(8.8)
+        .setMask(this.babyMask);
+      this.foam.push(bubble);
+      this.foamPeak = Math.max(this.foamPeak, this.foam.length);
+    }
+
+    // يُبقي من الرغوة نسبة `level` (0..1) — تزول تدريجياً أثناء الشطف
+    trimFoam(level) {
+      if (this.foamPeak === 0) return;
+      const desired = Math.ceil(this.foamPeak * Phaser.Math.Clamp(level, 0, 1));
+      while (this.foam.length > desired) {
+        const bubble = this.foam.splice(Phaser.Math.Between(0, this.foam.length - 1), 1)[0];
+        this.tweens.add({
+          targets: bubble, alpha: 0, scaleX: bubble.scaleX * 1.5, scaleY: bubble.scaleY * 1.5, duration: 200,
+          onComplete: () => bubble.destroy()
+        });
+      }
+    }
+
+    spawnDrops(x, y) {
+      const drop = this.add.circle(x + Phaser.Math.Between(-20, 20), y + 40, 7, 0x9BDCF5, 0.85).setDepth(11);
+      this.tweens.add({
+        targets: drop, y: drop.y + 160, alpha: 0, duration: 420,
+        onComplete: () => drop.destroy()
+      });
+    }
+
+    updateProgressBar() {
+      const x = 700, y = 888, width = 520, height = 14;
+      this.barBg.clear();
+      this.barBg.fillStyle(0xFFFFFF, 0.6);
+      this.barBg.fillRoundedRect(x, y, width, height, height / 2);
+      this.barFill.clear();
+      if (this.step === BATH_STEP.DONE) { this.barBg.clear(); return; }  // زر الإعادة يحتل مكانه
+      const fill = width * this.progress / 100;
+      if (fill > 1) {
+        this.barFill.fillStyle(0x4FC3F7, 1);
+        this.barFill.fillRoundedRect(x, y, fill, height, height / 2);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // الاكتمال وإعادة الضبط
+    // ------------------------------------------------------------------------
+    finishBath() {
+      this.baby.input.enabled = false;
+      this.soap.input.enabled = false;
+      this.shower.input.enabled = false;
+      this.game.canvas.style.cursor = '';
+      this.stepLabel.setText(BATH_LABELS.DONE);
+
+      // المكافأة تُمنح مرة واحدة فقط عند الاكتمال
+      this.performCare(this.room.action, this.room.amount, this.room.actionMessage);
+
+      this.resetButton = addButton(this, {
+        x: CONFIG.WIDTH / 2, y: 925, width: 520, height: 78,
+        label: '🔄  استحمام جديد', color: 0x4CAF50, border: 0x388E3C, fontSize: 26,
+        onClick: () => {
+          if (this.resetButton) { this.resetButton.destroy(); this.resetButton = null; }
+          this.resetBath();
+        }
+      });
+    }
+
+    resetBath() {
+      const L = BATH_LAYOUT;
+      this.inTub = false;
+      this.baby.clearMask();
+      this.baby.clearTint();
+      setBathBabyArt(this.baby, this.babyStandKey);
+      this.baby.setPosition(L.floor.x, L.floor.y);
+      this.foam.forEach(b => b.destroy());
+      this.foam = [];
+      this.foamPeak = 0;
+      this.waterLevel = 0;
+      this.soap.setPosition(L.soapHome.x, L.soapHome.y);
+      this.shower.setPosition(L.showerHome.x, L.showerHome.y);
+      this.enterStep(BATH_STEP.ENTER);
+    }
+
+    cleanupBath() {
+      this.input.off('dragstart', this.bathOnDragStart);
+      this.input.off('drag', this.bathOnDrag);
+      this.input.off('dragend', this.bathOnDragEnd);
+      this.input.off('pointerup', this.bathOnPointerUp);
+      this.game.canvas.style.cursor = '';
     }
   }
 

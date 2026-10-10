@@ -294,7 +294,7 @@ class BathScene extends Phaser.Scene {
 
     // تنظيف عند مغادرة المشهد
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      if (this._babyDragProxy) { this._babyDragProxy.destroy(); this._babyDragProxy = null; }
+      this._teardownBabyDrag();
       if (this.soapInteraction) { this.soapInteraction.destroy(); this.soapInteraction = null; }
       if (this.waterInteraction) { this.waterInteraction.destroy(); this.waterInteraction = null; }
       if (this.towelInteraction) { this.towelInteraction.destroy(); this.towelInteraction = null; }
@@ -304,37 +304,49 @@ class BathScene extends Phaser.Scene {
   }
 
   // ===========================================================================
-  // طور ENTER_BATH — سحب الطفل من الأرضية إلى داخل الحوض
+  // طور ENTER_BATH — سحب الطفل من الأرضية وإفلاته داخل منطقة الحوض (Drop Zone)
+  // -----------------------------------------------------------------------------
+  // الطفل نفسه هو الهدف القابل للسحب (لا مقبض وهمي منفصل).
+  // لا يُرفع أي تقدم إلا عند الإفلات داخل منطقة الحوض، ولذلك لا يبدأ طور
+  // الماء (FILL_WATER) إلا بعد نجاح هذا الطور.
   // ===========================================================================
   _beginEnterBath() {
     const ctrl = this.babyController;
+    const baby = ctrl.getContainer();
 
     // الطفل يقف على الأرضية خارج الحوض: بلا قناع + حالة وقوف
-    ctrl.getContainer().clearMask();
+    baby.clearMask();
     ctrl.setPosition(this._enterStart.x, this._enterStart.y);
     ctrl.setState(BabyStates.IDLE);
 
-    // مقبض سحب شفاف فوق جسم الطفل (أسهل للمس من Container نفسه)
-    const grabY = this._enterStart.y - 150;
-    this._babyDragProxy = this.add.rectangle(this._enterStart.x, grabY, 300, 340, 0xffffff, 0.001)
-      .setDepth(this.DEPTHS.PROPS_UI + 30)
-      .setInteractive({ useHandCursor: true, draggable: true });
+    // منطقة الإمساك بإحداثيات الحاوية المحلية (قبل المقياس 0.55):
+    // الإطار 512×512 للطفل (origin أسفل-وسط) مع فائض صغير للمس.
+    const grabArea = new Phaser.Geom.Rectangle(-280, -560, 560, 600);
+    baby.setInteractive(grabArea, Phaser.Geom.Rectangle.Contains);
+    this.input.setDraggable(baby);
+    baby.input.cursor = 'grab';
 
-    this._babyDragProxy.on('drag', (_p, dragX, dragY) => {
-      this._babyDragProxy.setPosition(dragX, dragY);
-      ctrl.setPosition(dragX, dragY + 150);
-    });
+    this._babyDragTarget = baby;
 
-    this._babyDragProxy.on('dragend', () => {
-      const dropX = this._babyDragProxy.x;
-      const dropY = this._babyDragProxy.y + 150;
+    // إيقاف أي Tween عودة جارٍ فوراً عند بدء سحب جديد (وإلا يتصارع معه)
+    this._onBabyDragStart = (_p, obj) => {
+      if (obj === baby) this.tweens.killTweensOf(baby);
+    };
 
-      if (Phaser.Geom.Ellipse.Contains(this._tubZone, dropX, dropY)) {
+    // الطفل يتبع المؤشر فوراً
+    this._onBabyDrag = (_p, obj, dragX, dragY) => {
+      if (obj === baby) ctrl.setPosition(dragX, dragY);
+    };
+
+    this._onBabyDragEnd = (_p, obj) => {
+      if (obj !== baby || this.bathActivity.phase !== 'ENTER_BATH') return;
+
+      // نقطة الإفلات = موضع قدم/مقعد الطفل (origin أسفل-وسط)
+      if (Phaser.Geom.Ellipse.Contains(this._tubZone, baby.x, baby.y)) {
         // ✅ إفلات صحيح داخل الحوض: جلوس + قناع + إبلاغ الـ State Machine
-        this._babyDragProxy.destroy();
-        this._babyDragProxy = null;
+        this._teardownBabyDrag();
         this.tweens.add({
-          targets: ctrl.getContainer(),
+          targets: baby,
           x: this._babySeat.x, y: this._babySeat.y,
           duration: 300, ease: 'Sine.easeOut',
           onComplete: () => {
@@ -344,18 +356,30 @@ class BathScene extends Phaser.Scene {
           }
         });
       } else {
-        // ❌ خارج الحوض: عودة الطفل والمقبض لنقطة البداية
+        // ❌ خارج الحوض: عودة الطفل لنقطة البداية (يبقى قابلاً للسحب)
         this.tweens.add({
-          targets: this._babyDragProxy,
-          x: this._enterStart.x, y: grabY, duration: 350, ease: 'Back.easeOut'
-        });
-        this.tweens.add({
-          targets: ctrl.getContainer(),
+          targets: baby,
           x: this._enterStart.x, y: this._enterStart.y,
           duration: 350, ease: 'Back.easeOut'
         });
       }
-    });
+    };
+
+    this.input.on('dragstart', this._onBabyDragStart);
+    this.input.on('drag', this._onBabyDrag);
+    this.input.on('dragend', this._onBabyDragEnd);
+  }
+
+  /** إزالة مستمعي السحب وتعطيل تفاعل الطفل (بعد نجاح الإفلات أو عند الخروج). */
+  _teardownBabyDrag() {
+    if (this._onBabyDragStart) this.input.off('dragstart', this._onBabyDragStart);
+    if (this._onBabyDrag)      this.input.off('drag', this._onBabyDrag);
+    if (this._onBabyDragEnd)   this.input.off('dragend', this._onBabyDragEnd);
+    this._onBabyDragStart = this._onBabyDrag = this._onBabyDragEnd = null;
+
+    const target = this._babyDragTarget;
+    if (target && target.active && target.input) target.removeInteractive();
+    this._babyDragTarget = null;
   }
 
   // ===========================================================================
