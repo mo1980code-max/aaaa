@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240" viewBox="0 0 180 240" fill="none">
+  <defs>
+    <linearGradient id="dress" x1="58" y1="123" x2="131" y2="207" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB4CE"/><stop offset="1" stop-color="#EA6D9A"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="55" y1="41" x2="119" y2="125" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE9CE"/><stop offset="1" stop-color="#F5C69F"/>
+    </linearGradient>
+    <filter id="shadow" x="26" y="211" width="128" height="26" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+  <ellipse cx="90" cy="226" rx="54" ry="7" fill="#754E77" opacity=".18" filter="url(#shadow)"/>
+  <!-- legs and little shoes -->
+  <path d="M68 183v25c0 7 5 12 12 12h8v-37H68Zm25 0v37h8c7 0 12-5 12-12v-25H93Z" fill="url(#skin)"/>
+  <path d="M64 210h24c3 0 5 2 5 5v5c0 5-4 8-9 8H65c-7 0-11-4-11-9 0-5 4-9 10-9Zm27 0h24c6 0 10 4 10 9 0 5-4 9-11 9h-19c-5 0-9-3-9-8v-5c0-3 2-5 5-5Z" fill="#B46C91"/>
+  <path d="M64 218h26M92 218h28" stroke="#FFE0EC" stroke-width="3" stroke-linecap="round"/>
+  <!-- arms -->
+  <path d="M55 132c-13 3-22 15-23 31l-2 23c-.4 6 3 10 8 10 5 0 8-3 9-8l5-19 15-13-12-24Zm70 0c13 3 22 15 23 31l2 23c.4 6-3 10-8 10-5 0-8-3-9-8l-5-19-15-13 12-24Z" fill="url(#skin)" stroke="#E5B28C" stroke-width="2"/>
+  <!-- dress romper -->
+  <path d="M60 123c8-7 18-10 30-10s22 3 30 10l15 23-15 13-8-10v45c0 8-6 14-14 14H82c-8 0-14-6-14-14v-45l-8 10-15-13 15-23Z" fill="url(#dress)" stroke="#D45282" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m78 116 12 13 12-13" stroke="#FFF1F6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M90 131v51" stroke="#FFF0F6" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+  <circle cx="90" cy="151" r="4" fill="#FFF2B5"/><circle cx="90" cy="168" r="4" fill="#FFF2B5"/>
+  <!-- ears and face -->
+  <circle cx="47" cy="79" r="12" fill="url(#skin)" stroke="#E5B28C" stroke-width="2"/>
+  <circle cx="133" cy="79" r="12" fill="url(#skin)" stroke="#E5B28C" stroke-width="2"/>
+  <ellipse cx="90" cy="77" rx="45" ry="49" fill="url(#skin)" stroke="#E5B28C" stroke-width="2.5"/>
+  <!-- soft chestnut hair and side curls -->
+  <path d="M45 76c-5-26 11-51 39-57 22-5 44 8 51 30 3 9 2 19-2 28-7-10-15-17-25-19-9 13-24 20-45 20-7 0-13-1-18-2Z" fill="#5A3C3A"/>
+  <path d="M51 76c-8 7-10 20-5 29 4 7 12 9 18 5V75l-13 1Zm78 0c8 7 10 20 5 29-4 7-12 9-18 5V75l13 1Z" fill="#6B4542"/>
+  <!-- headband and flower -->
+  <path d="M48 58c18-26 67-32 86-4" stroke="#F5A0BF" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="124" cy="43" r="9" fill="#FF9EBB"/>
+  <circle cx="115" cy="43" r="7" fill="#FFD0DE"/><circle cx="132" cy="43" r="7" fill="#FFD0DE"/>
+  <circle cx="124" cy="34" r="7" fill="#FFD0DE"/><circle cx="124" cy="52" r="7" fill="#FFD0DE"/>
+  <circle cx="124" cy="43" r="4" fill="#FFD54F"/>
+  <!-- face -->
+  <path d="M66 76c5-5 12-5 17 0M97 76c5-5 12-5 17 0" stroke="#68463D" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="74" cy="88" rx="7" ry="9" fill="#FFFFFF"/><ellipse cx="106" cy="88" rx="7" ry="9" fill="#FFFFFF"/>
+  <ellipse cx="76" cy="89" rx="4" ry="6" fill="#4A3D3A"/><ellipse cx="108" cy="89" rx="4" ry="6" fill="#4A3D3A"/>
+  <circle cx="77" cy="87" r="1.7" fill="#FFFFFF"/><circle cx="109" cy="87" r="1.7" fill="#FFFFFF"/>
+  <ellipse cx="61" cy="102" rx="8" ry="4" fill="#F39B91" opacity=".44"/><ellipse cx="119" cy="102" rx="8" ry="4" fill="#F39B91" opacity=".44"/>
+  <path d="M82 108c4 8 12 8 16 0" stroke="#B95D62" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M89 99c2-2 4-2 6 0" stroke="#E2A77F" stroke-width="2" stroke-linecap="round"/>
+  <!-- tiny dress buttons -->
+  <circle cx="77" cy="124" r="4" fill="#FFF2B5"/><circle cx="103" cy="124" r="4" fill="#FFF2B5"/>
+</svg>

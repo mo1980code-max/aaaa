@@ -3,30 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Baby Care World — لعبة رعاية أطفال لطيفة باللغة العربية.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#87CEEB">
-  <title>Baby Care World</title>
+  <title>Baby Care World — عالم رعاية الأطفال</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; font-family: Arial, sans-serif; touch-action: none; }
-    #game-container { width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
-    #pre-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+    #game-container { width: 100%; height: 100%; position: fixed; inset: 0; }
+    #game-container canvas { display: block; }
+    #pre-loader { position: fixed; inset: 0; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
     #pre-loader.hidden { opacity: 0; pointer-events: none; }
-    #pre-loader h1 { color: white; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); margin-bottom: 20px; }
+    #pre-loader h1 { color: white; font-size: clamp(1.8rem, 6vw, 2.5rem); text-shadow: 2px 2px 4px rgba(0,0,0,0.3); margin-bottom: 20px; }
     .loader-bar { width: 200px; height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; }
     .loader-bar-fill { width: 0%; height: 100%; background: white; border-radius: 4px; animation: ld 1.5s infinite; }
+    .load-error { max-width: 680px; padding: 32px; color: white; text-align: center; direction: rtl; font-family: Arial, sans-serif; }
+    .load-error p { margin: 16px 0 24px; line-height: 1.6; }
+    .load-error button { padding: 12px 24px; border: 0; border-radius: 12px; background: white; color: #5b4a9d; font-size: 1rem; font-weight: bold; cursor: pointer; }
     @keyframes ld { 0%{width:0} 50%{width:100%} 100%{width:0} }
   </style>
 </head>
 <body>
-  <div id="pre-loader">
+  <div id="pre-loader" role="status" aria-live="polite">
     <h1>🍼 Baby Care World</h1>
     <div class="loader-bar"><div class="loader-bar-fill"></div></div>
   </div>
-  <div id="game-container"></div>
-  
+  <main id="game-container" aria-label="Baby Care World game"></main>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-  <script src="/aaaa/game.js"></script>
+  <script src="./game.js"></script>
 </body>
 </html>
