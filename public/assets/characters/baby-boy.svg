@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="640" viewBox="0 0 512 640" role="img" aria-labelledby="title desc">
+  <title id="title">Baby boy character</title>
+  <desc id="desc">A cheerful baby with a blue romper and soft brown curls.</desc>
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE7CE"/>
+      <stop offset="1" stop-color="#F3B98F"/>
+    </linearGradient>
+    <linearGradient id="romper" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#79D6F5"/>
+      <stop offset="1" stop-color="#399FE0"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#76503B"/>
+      <stop offset="1" stop-color="#4B3029"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="256" cy="601" rx="145" ry="23" fill="#4B6880" opacity=".16"/>
+
+  <!-- Tiny feet and legs -->
+  <path d="M185 500c-9 37-10 69 6 87 12 13 37 13 49 1 12-12 8-39 4-67l-3-24z" fill="url(#skin)" stroke="#B8785D" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M271 501c-4 31-8 60 3 78 9 15 34 19 48 8 16-12 17-38 11-71l-4-22z" fill="url(#skin)" stroke="#B8785D" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M178 574c-10 10-7 25 8 31 18 7 46 7 57-1 10-7 6-23-6-29-17-8-45-9-59-1z" fill="#FFF7F0" stroke="#D9C5B7" stroke-width="5"/>
+  <path d="M278 578c-8 11-3 25 12 30 19 6 45 3 55-7 9-9 3-24-10-28-19-6-45-5-57 5z" fill="#FFF7F0" stroke="#D9C5B7" stroke-width="5"/>
+
+  <!-- Arms -->
+  <path d="M164 357c-26 25-48 59-57 94-6 24 3 41 21 45 17 4 28-9 37-29l45-81z" fill="url(#skin)" stroke="#B8785D" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M348 356c27 20 52 52 64 86 9 24 1 43-16 49-18 6-30-7-40-26l-52-75z" fill="url(#skin)" stroke="#B8785D" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- Romper -->
+  <path d="M176 340c20-18 48-29 80-29s60 11 80 29l32 55-26 42-14 115c-1 15-13 25-28 25h-88c-15 0-27-10-28-25l-14-115-26-42z" fill="url(#romper)" stroke="#287EBA" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M222 318c8 20 19 31 34 31s26-11 34-31" fill="none" stroke="#D8F5FF" stroke-width="11" stroke-linecap="round"/>
+  <path d="M218 434c25 16 51 16 76 0" fill="none" stroke="#B8ECFF" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+  <circle cx="256" cy="474" r="7" fill="#E8F9FF"/>
+  <circle cx="256" cy="507" r="7" fill="#E8F9FF"/>
+  <path d="M220 545c18 17 54 17 72 0" fill="none" stroke="#287EBA" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Ears and face -->
+  <ellipse cx="133" cy="245" rx="27" ry="38" fill="url(#skin)" stroke="#B8785D" stroke-width="6"/>
+  <ellipse cx="379" cy="245" rx="27" ry="38" fill="url(#skin)" stroke="#B8785D" stroke-width="6"/>
+  <ellipse cx="256" cy="241" rx="132" ry="151" fill="url(#skin)" stroke="#B8785D" stroke-width="7"/>
+
+  <!-- Hair -->
+  <path d="M126 218c-13-70 28-125 84-132 25-48 101-43 126-1 52 13 71 64 52 126-20-11-30-32-31-55-18 14-44 17-67 8-23 19-57 23-84 12-18 25-45 41-80 42z" fill="url(#hair)" stroke="#4B3029" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M194 104c14-30 48-39 69-16 10-28 49-32 65-8 7 10 9 22 5 33-16-13-36-16-54-7-19-14-45-10-57 9-11-7-20-9-28-11z" fill="#8B6048" opacity=".9"/>
+  <path d="M177 177c14-16 29-23 47-23" fill="none" stroke="#A77A5C" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+
+  <!-- Bright eyes -->
+  <ellipse cx="205" cy="252" rx="23" ry="30" fill="#FFFDF9"/>
+  <ellipse cx="307" cy="252" rx="23" ry="30" fill="#FFFDF9"/>
+  <ellipse cx="210" cy="259" rx="13" ry="18" fill="#4D6E79"/>
+  <ellipse cx="302" cy="259" rx="13" ry="18" fill="#4D6E79"/>
+  <ellipse cx="213" cy="254" rx="5" ry="7" fill="#FFFFFF"/>
+  <ellipse cx="305" cy="254" rx="5" ry="7" fill="#FFFFFF"/>
+  <path d="M181 216c13-12 29-14 44-7M286 209c14-7 31-5 44 7" fill="none" stroke="#684534" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="171" cy="300" rx="23" ry="13" fill="#F18C83" opacity=".47"/>
+  <ellipse cx="341" cy="300" rx="23" ry="13" fill="#F18C83" opacity=".47"/>
+  <path d="M231 307c16 19 34 19 50 0" fill="none" stroke="#B85E56" stroke-width="8" stroke-linecap="round"/>
+  <path d="M249 292c5-4 10-4 15 0" fill="none" stroke="#D28D6E" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- A little sparkle -->
+  <path d="M418 174v15m-7-8h14" stroke="#FFD36A" stroke-width="6" stroke-linecap="round"/>
+</svg>

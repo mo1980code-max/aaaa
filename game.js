@@ -1,1127 +1,1182 @@
-// Baby Care World - Single File Game
-// Uses Phaser from CDN
+// Baby Care World — a small, touch-friendly Phaser game.
+// Character artwork lives in public/assets/characters/ and is loaded at startup.
 
-(function() {
+(function () {
   'use strict';
-  
-  const CONFIG = {
-    WIDTH: 1920,
-    HEIGHT: 1080,
-    SCENES: {
-      BOOT: 'BootScene',
-      PRELOAD: 'PreloadScene',
-      MENU: 'MenuScene',
-      CHARACTER_SELECT: 'CharacterSelectScene',
-      HOUSE: 'HouseScene',
-      LIVING_ROOM: 'LivingRoomScene',
-      KITCHEN: 'KitchenScene',
-      BATHROOM: 'BathroomScene',
-      BEDROOM: 'BedroomScene',
-      PLAYROOM: 'PlayroomScene',
-      GARDEN: 'GardenScene',
-      SETTINGS: 'SettingsScene'
-    },
-    COLORS: {
-      PRIMARY: 0xFF6B9D,
-      SECONDARY: 0xC44569,
-      ACCENT: 0xFFD93D
-    }
+
+  const WIDTH = 1920;
+  const HEIGHT = 1080;
+  const SAVE_KEY = 'babyCareWorld_save';
+  const FONT = 'Arial, sans-serif';
+
+  const CHARACTERS = {
+    baby_boy: { label: 'الطفل', asset: './public/assets/characters/baby-boy.svg' },
+    baby_girl: { label: 'الطفلة', asset: './public/assets/characters/baby-girl.svg' }
   };
 
-  // Save Manager
+  const SHOP_ITEMS = [
+    { id: 'pink_bow', name: 'ربطة الفراشة', description: 'زينة وردية لطيفة لطفلك.', icon: '🎀', price: 20 },
+    { id: 'gold_crown', name: 'التاج الذهبي', description: 'لأن كل طفل أمير صغير!', icon: '👑', price: 35 },
+    { id: 'blue_cap', name: 'قبعة المغامرات', description: 'قبعة مرحة للعب والاستكشاف.', icon: '🧢', price: 30 }
+  ];
+
+  const STAT_META = {
+    hunger: { label: 'الجوع', icon: '🍎', color: 0xFF9F43 },
+    hygiene: { label: 'النظافة', icon: '🫧', color: 0x38BDF8 },
+    sleep: { label: 'النوم', icon: '🌙', color: 0x818CF8 },
+    energy: { label: 'الطاقة', icon: '⚡', color: 0xFACC15 },
+    happiness: { label: 'السعادة', icon: '💖', color: 0xF472B6 }
+  };
+
+  const CARE_ACTIONS = {
+    feed: { hunger: 26, energy: 4 },
+    bath: { hygiene: 30, happiness: 10 },
+    sleep: { sleep: 32, energy: 18 },
+    play: { happiness: 24, energy: -8 }
+  };
+
+  const ROOMS = [
+    {
+      id: 'living', sceneKey: 'LivingRoomScene', name: 'غرفة المعيشة', icon: '🛋️',
+      hint: 'وقت للعناق والمرح', action: 'play', actionLabel: 'العب مع الطفل',
+      success: 'ضحكة صغيرة تجعل البيت أجمل!', wall: 0xFFF0D9, floor: 0xD4A982,
+      furniture: 'furniture_sofa', scale: 0.92, accent: 0xE8A87C
+    },
+    {
+      id: 'kitchen', sceneKey: 'KitchenScene', name: 'المطبخ', icon: '🍳',
+      hint: 'حضّر وجبة لذيذة', action: 'feed', actionLabel: 'قدّم وجبة للطفل',
+      success: 'لذيذ! أصبح بطن الطفل ممتلئاً.', wall: 0xFFF0E4, floor: 0xC7B2A1,
+      furniture: 'furniture_kitchen', scale: 0.92, accent: 0xF4A261
+    },
+    {
+      id: 'bathroom', sceneKey: 'BathroomScene', name: 'الحمّام', icon: '🛁',
+      hint: 'حمّام دافئ ومنعش', action: 'bath', actionLabel: 'ابدأ وقت الاستحمام',
+      success: 'أصبح الطفل نظيفاً وسعيداً!', wall: 0xE5F8FC, floor: 0xB8E3E9,
+      furniture: 'furniture_bathtub', scale: 0.92, accent: 0x55B9D7
+    },
+    {
+      id: 'bedroom', sceneKey: 'BedroomScene', name: 'غرفة النوم', icon: '🛏️',
+      hint: 'حان وقت الراحة', action: 'sleep', actionLabel: 'ساعد الطفل على النوم',
+      success: 'أحلاماً سعيدة! الطفل يرتاح الآن.', wall: 0xF3EAFE, floor: 0xC6B3D8,
+      furniture: 'furniture_bed', scale: 0.92, accent: 0x9A86C8
+    },
+    {
+      id: 'playroom', sceneKey: 'PlayroomScene', name: 'غرفة الألعاب', icon: '🧸',
+      hint: 'ألعاب ملوّنة ومغامرات', action: 'play', actionLabel: 'العب بالألعاب',
+      success: 'يا له من وقت ممتع مع الألعاب!', wall: 0xFFF9D9, floor: 0xE5D47F,
+      furniture: 'furniture_toys', scale: 1.02, accent: 0xE3B341
+    },
+    {
+      id: 'garden', sceneKey: 'GardenScene', name: 'الحديقة', icon: '🌷',
+      hint: 'هواء منعش وأزهار جميلة', action: 'play', actionLabel: 'اخرج للعب في الحديقة',
+      success: 'استمتع الطفل بالهواء الطلق!', wall: 0xDDF5E1, floor: 0x84C989,
+      furniture: 'furniture_tree', scale: 0.82, accent: 0x58A96A
+    }
+  ];
+
+  if (typeof Phaser === 'undefined') {
+    const loader = document.getElementById('pre-loader');
+    if (loader) {
+      loader.classList.remove('hidden');
+      loader.innerHTML = '<div class="load-error"><h1>تعذّر تحميل اللعبة</h1><p>تحقّق من اتصال الإنترنت ثم أعد تحميل الصفحة.</p></div>';
+    }
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persistent state
+  // ---------------------------------------------------------------------------
   class SaveManager {
     constructor() {
-      this.key = 'babyCareWorld_save';
-      this.data = null;
+      this.data = this.defaultState();
     }
-    
-    getDefault() {
+
+    defaultState() {
       return {
+        version: 2,
         coins: 100,
         stars: 0,
         selectedCharacter: 'baby_boy',
         babyNeeds: { hunger: 80, hygiene: 90, sleep: 70, energy: 85, happiness: 100 },
-        settings: { musicVolume: 0.7, sfxVolume: 0.8 }
+        careActions: 0,
+        accessories: [],
+        equippedAccessory: '',
+        settings: { musicVolume: 0.7, sfxVolume: 0.8, reduceMotion: false }
       };
     }
-    
+
+    normalize(value) {
+      const defaults = this.defaultState();
+      const data = value && typeof value === 'object' ? value : {};
+      const savedNeeds = data.babyNeeds && typeof data.babyNeeds === 'object' ? data.babyNeeds : {};
+      const savedSettings = data.settings && typeof data.settings === 'object' ? data.settings : {};
+      const validAccessoryIds = new Set(SHOP_ITEMS.map((item) => item.id));
+      const accessories = Array.isArray(data.accessories)
+        ? [...new Set(data.accessories.filter((id) => validAccessoryIds.has(id)))]
+        : [];
+      const numberInRange = (input, fallback, min, max) => {
+        const number = Number(input);
+        return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+      };
+
+      return {
+        version: 2,
+        coins: Math.floor(numberInRange(data.coins, defaults.coins, 0, 999999)),
+        stars: Math.floor(numberInRange(data.stars, defaults.stars, 0, 999999)),
+        selectedCharacter: Object.prototype.hasOwnProperty.call(CHARACTERS, data.selectedCharacter)
+          ? data.selectedCharacter
+          : defaults.selectedCharacter,
+        babyNeeds: Object.keys(STAT_META).reduce((needs, key) => {
+          needs[key] = numberInRange(savedNeeds[key], defaults.babyNeeds[key], 0, 100);
+          return needs;
+        }, {}),
+        careActions: Math.floor(numberInRange(data.careActions, 0, 0, 999999)),
+        accessories,
+        equippedAccessory: accessories.includes(data.equippedAccessory) ? data.equippedAccessory : '',
+        settings: {
+          musicVolume: numberInRange(savedSettings.musicVolume, defaults.settings.musicVolume, 0, 1),
+          sfxVolume: numberInRange(savedSettings.sfxVolume, defaults.settings.sfxVolume, 0, 1),
+          reduceMotion: Boolean(savedSettings.reduceMotion)
+        }
+      };
+    }
+
     load() {
       try {
-        const raw = localStorage.getItem(this.key);
-        return raw ? JSON.parse(raw) : null;
-      } catch(e) { return null; }
+        const raw = window.localStorage.getItem(SAVE_KEY);
+        return raw ? this.normalize(JSON.parse(raw)) : this.defaultState();
+      } catch (error) {
+        return this.defaultState();
+      }
     }
-    
-    save() {
-      try {
-        localStorage.setItem(this.key, JSON.stringify(this.data));
-      } catch(e) {}
-    }
-    
+
     init() {
-      this.data = this.load() || this.getDefault();
+      this.data = this.load();
       this.save();
       return this.data;
     }
-    
-    get() { return this.data || this.init(); }
-    addCoins(n) { this.data.coins += n; this.save(); return this.data.coins; }
-    addStars(n) { this.data.stars += n; this.save(); return this.data.stars; }
+
+    save() {
+      try {
+        window.localStorage.setItem(SAVE_KEY, JSON.stringify(this.data));
+      } catch (error) {
+        // The game remains playable when storage is disabled or full.
+      }
+    }
+
+    reset() {
+      this.data = this.defaultState();
+      this.save();
+      return this.data;
+    }
   }
 
-  // Needs Manager
   class NeedsManager {
     constructor(saveManager) {
-      this.save = saveManager;
-      this.needs = { ...saveManager.get().babyNeeds };
+      this.saveManager = saveManager;
     }
-    
-    get() { return { ...this.needs }; }
-    
+
+    get() {
+      return { ...this.saveManager.data.babyNeeds };
+    }
+
     tick() {
-      this.needs.hunger = Math.max(0, this.needs.hunger - 0.5);
-      this.needs.hygiene = Math.max(0, this.needs.hygiene - 0.3);
-      this.needs.sleep = Math.max(0, this.needs.sleep - 0.4);
-      this.needs.energy = Math.max(0, this.needs.energy - 0.3);
-      this.needs.happiness = Math.max(0, this.needs.happiness - 0.2);
-      this.save();
-    }
-    
-    feed(n=25) { this.needs.hunger = Math.min(100, this.needs.hunger + n); this.needs.energy = Math.min(100, this.needs.energy + 5); this.save(); }
-    bath(n=30) { this.needs.hygiene = Math.min(100, this.needs.hygiene + n); this.needs.happiness = Math.min(100, this.needs.happiness + 10); this.save(); }
-    sleep(n=35) { this.needs.sleep = Math.min(100, this.needs.sleep + n); this.needs.energy = Math.min(100, this.needs.energy + 20); this.save(); }
-    play(n=20) { this.needs.happiness = Math.min(100, this.needs.happiness + n); this.needs.energy = Math.max(0, this.needs.energy - 10); this.save(); }
-    
-    getMood() {
-      const avg = (this.needs.hunger + this.needs.hygiene + this.needs.sleep + this.needs.energy + this.needs.happiness) / 5;
-      if (avg >= 80) return 'happy';
-      if (avg >= 60) return 'neutral';
-      if (avg >= 40) return 'sad';
-      return 'crying';
-    }
-    
-    save() { this.save.data.babyNeeds = { ...this.needs }; this.save.save(); }
-  }
-
-  // ============ BOOT SCENE ============
-  class BootScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.BOOT }); }
-    
-    create() {
-      this.generateTextures();
-      this.time.delayedCall(300, () => this.scene.start(CONFIG.SCENES.PRELOAD));
-    }
-    
-    generateTextures() {
-      const g = this.make.graphics(0, 0);
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      
-      // Buttons
-      this.makeButton(g, 'btn_play', 280, 90, 0x4CAF50, 0x388E3C);
-      this.makeButton(g, 'btn_settings', 280, 90, 0x607D8B, 0x455A64);
-      this.makeButton(g, 'btn_back', 200, 70, 0xFF7043, 0xE64A19);
-      
-      // Room backgrounds
-      const rooms = {
-        'room_living': 0xFFE4B5, 'room_kitchen': 0xFFDAB9, 'room_bathroom': 0xE0F7FA,
-        'room_bedroom': 0xF3E5F5, 'room_playroom': 0xFFF9C4, 'room_garden': 0xC8E6C9
-      };
-      
-      for (const [key, color] of Object.entries(rooms)) {
-        g.clear();
-        g.fillStyle(color, 1);
-        g.fillRect(0, 0, W, H);
-        const r = Math.max(0, (color >> 16) - 40);
-        const gr = Math.max(0, ((color >> 8) & 0xFF) - 40);
-        const b = Math.max(0, (color & 0xFF) - 40);
-        g.fillStyle((r << 16) | (gr << 8) | b, 1);
-        g.fillRect(0, H * 0.7, W, H * 0.3);
-        g.generateTexture(key, W, H);
-      }
-      
-      // House
-      g.clear();
-      g.fillStyle(0x87CEEB, 1); g.fillRect(0, 0, W, H);
-      g.fillStyle(0x90EE90, 1); g.fillRect(0, H * 0.75, W, H * 0.25);
-      g.fillStyle(0xFFF8DC, 1); g.fillRect(300, 200, 1320, 600);
-      g.lineStyle(4, 0x8B4513, 1); g.strokeRect(300, 200, 1320, 600);
-      g.fillStyle(0xD2691E, 1); g.fillTriangle(250, 200, 1670, 200, 960, 50);
-      g.fillStyle(0x8B4513, 1); g.fillRoundedRect(860, 500, 200, 300, 10);
-      g.fillStyle(0x87CEEB, 1); g.fillRect(400, 350, 200, 200); g.fillRect(1320, 350, 200, 200);
-      g.lineStyle(3, 0x8B4513, 1);
-      g.strokeRect(400, 350, 200, 200); g.strokeRect(1320, 350, 200, 200);
-      g.lineBetween(500, 350, 500, 550); g.lineBetween(400, 450, 600, 450);
-      g.lineBetween(1420, 350, 1420, 550); g.lineBetween(1320, 450, 1520, 450);
-      g.generateTexture('house_exterior', W, H);
-      
-      // Babies
-      this.makeBaby(g, 'baby_boy', 0x4FC3F7, 0x29B6F6);
-      this.makeBaby(g, 'baby_girl', 0xF48FB1, 0xF06292);
-      this.makeBaby(g, 'baby_boy_sad', 0x4FC3F7, 0x29B6F6, true);
-      this.makeBaby(g, 'baby_girl_sad', 0xF48FB1, 0xF06292, true);
-      this.makeBaby(g, 'baby_boy_sleep', 0x4FC3F7, 0x29B6F6, false, true);
-      this.makeBaby(g, 'baby_girl_sleep', 0xF48FB1, 0xF06292, false, true);
-      
-      // Furniture
-      this.makeFurniture(g);
-      
-      // Icons
-      g.clear(); g.fillStyle(0xFFD700, 1); g.fillCircle(20, 20, 18);
-      g.lineStyle(2, 0xFFA000, 1); g.strokeCircle(20, 20, 18);
-      g.fillStyle(0xFFA000, 1); g.fillCircle(20, 20, 10);
-      g.generateTexture('icon_coin', 40, 40);
-      
-      g.clear(); g.fillStyle(0xFFD700, 1);
-      this.drawStar(g, 22, 22, 5, 20, 9);
-      g.generateTexture('icon_star', 44, 44);
-      
-      g.clear(); g.fillStyle(0xFF4081, 1);
-      g.fillCircle(16, 16, 10); g.fillCircle(28, 16, 10);
-      g.fillTriangle(6, 16, 38, 16, 22, 36);
-      g.generateTexture('icon_heart', 44, 44);
-      
-      g.destroy();
-    }
-    
-    makeButton(g, key, w, h, color, border) {
-      g.clear();
-      g.fillStyle(color, 1); g.fillRoundedRect(0, 0, w, h, 20);
-      g.lineStyle(4, border, 1); g.strokeRoundedRect(0, 0, w, h, 20);
-      g.generateTexture(key, w, h);
-    }
-    
-    makeBaby(g, key, body, dark, sad, sleep) {
-      g.clear();
-      g.fillStyle(body, 1); g.fillRoundedRect(25, 70, 70, 80, 15);
-      g.fillStyle(0xFFE0BD, 1); g.fillCircle(60, 45, 40);
-      
-      if (sleep) {
-        g.lineStyle(3, 0x3E2723, 1);
-        g.beginPath(); g.arc(45, 42, 8, 0, Math.PI); g.strokePath();
-        g.beginPath(); g.arc(75, 42, 8, 0, Math.PI); g.strokePath();
-      } else {
-        g.fillStyle(0xFFFFFF, 1); g.fillCircle(45, 40, 12); g.fillCircle(75, 40, 12);
-        g.fillStyle(0x3E2723, 1); g.fillCircle(47, 42, 7); g.fillCircle(77, 42, 7);
-        g.fillStyle(0xFFFFFF, 1); g.fillCircle(50, 39, 3); g.fillCircle(80, 39, 3);
-        
-        if (sad) {
-          g.lineStyle(3, 0x3E2723, 1);
-          g.beginPath(); g.arc(60, 70, 12, 1.1 * Math.PI, 1.9 * Math.PI); g.strokePath();
-          g.fillStyle(0x64B5F6, 0.8); g.fillCircle(40, 55, 4); g.fillCircle(80, 58, 4);
-        } else {
-          g.lineStyle(3, 0xE91E63, 1);
-          g.beginPath(); g.arc(60, 55, 12, 0.1 * Math.PI, 0.9 * Math.PI); g.strokePath();
-        }
-      }
-      
-      g.fillStyle(0xFFAB91, 0.5); g.fillCircle(35, 52, 8); g.fillCircle(85, 52, 8);
-      g.fillStyle(dark, 1); g.fillRoundedRect(25, 5, 70, 30, 15);
-      g.fillStyle(0xFFE0BD, 1);
-      g.fillRoundedRect(5, 80, 22, 50, 10); g.fillRoundedRect(93, 80, 22, 50, 10);
-      g.fillRoundedRect(30, 145, 22, 45, 10); g.fillRoundedRect(68, 145, 22, 45, 10);
-      g.fillStyle(dark, 1);
-      g.fillRoundedRect(25, 180, 30, 15, 7); g.fillRoundedRect(65, 180, 30, 15, 7);
-      g.generateTexture(key, 120, 200);
-    }
-    
-    makeFurniture(g) {
-      // Bed
-      g.clear(); g.fillStyle(0x8D6E63, 1); g.fillRoundedRect(0, 60, 300, 150, 10);
-      g.fillStyle(0xE3F2FD, 1); g.fillRoundedRect(10, 10, 280, 80, 8);
-      g.fillStyle(0xFFFFFF, 1); g.fillRoundedRect(20, 20, 80, 50, 15);
-      g.generateTexture('furniture_bed', 300, 210);
-      
-      // Chair
-      g.clear(); g.fillStyle(0x8D6E63, 1);
-      g.fillRect(20, 0, 60, 120); g.fillRect(0, 80, 100, 20);
-      g.fillRect(10, 100, 15, 60); g.fillRect(75, 100, 15, 60);
-      g.generateTexture('furniture_chair', 100, 160);
-      
-      // Table
-      g.clear(); g.fillStyle(0xA1887F, 1);
-      g.fillRect(0, 0, 250, 20); g.fillRect(20, 20, 15, 100); g.fillRect(215, 20, 15, 100);
-      g.generateTexture('furniture_table', 250, 120);
-      
-      // Bathtub
-      g.clear(); g.fillStyle(0xE0E0E0, 1); g.fillRoundedRect(0, 30, 300, 170, 20);
-      g.fillStyle(0xB3E5FC, 1); g.fillRoundedRect(20, 50, 260, 130, 15);
-      g.fillStyle(0x9E9E9E, 1); g.fillCircle(250, 20, 15); g.fillRect(240, 0, 20, 30);
-      g.generateTexture('furniture_bathtub', 300, 200);
-      
-      // Toys
-      g.clear(); g.fillStyle(0xFF5252, 1); g.fillRect(0, 30, 40, 40);
-      g.fillStyle(0x448AFF, 1); g.fillRect(50, 30, 40, 40);
-      g.fillStyle(0x69F0AE, 1); g.fillRect(25, 0, 40, 40);
-      g.generateTexture('furniture_toys', 100, 70);
-      
-      // TV
-      g.clear(); g.fillStyle(0x37474F, 1); g.fillRoundedRect(0, 0, 200, 130, 8);
-      g.fillStyle(0x4FC3F7, 1); g.fillRect(10, 10, 180, 100);
-      g.fillStyle(0x546E7A, 1); g.fillRect(70, 130, 60, 15); g.fillRect(50, 145, 100, 10);
-      g.generateTexture('furniture_tv', 200, 155);
-      
-      // Cabinet
-      g.clear(); g.fillStyle(0x8D6E63, 1); g.fillRoundedRect(0, 0, 150, 250, 5);
-      g.lineStyle(2, 0x6D4C41, 1); g.lineBetween(0, 125, 150, 125);
-      g.fillStyle(0xFFD54F, 1); g.fillCircle(130, 62, 8); g.fillCircle(130, 187, 8);
-      g.generateTexture('furniture_cabinet', 150, 250);
-      
-      // Apple
-      g.clear(); g.fillStyle(0xF44336, 1); g.fillCircle(25, 30, 22);
-      g.fillStyle(0x4CAF50, 1); g.fillRect(22, 5, 6, 15);
-      g.generateTexture('food_apple', 50, 55);
-      
-      // Bottle
-      g.clear(); g.fillStyle(0xBBDEFB, 1); g.fillRoundedRect(5, 20, 30, 50, 5);
-      g.fillStyle(0xFFFFFF, 1); g.fillRect(12, 5, 16, 20);
-      g.fillStyle(0xFFECB3, 1); g.fillRoundedRect(8, 35, 24, 30, 3);
-      g.generateTexture('food_bottle', 40, 70);
-      
-      // Soap
-      g.clear(); g.fillStyle(0xE1BEE7, 1); g.fillRoundedRect(0, 10, 60, 35, 10);
-      g.fillStyle(0xFFFFFF, 0.7);
-      g.fillCircle(50, 5, 8); g.fillCircle(60, 15, 6); g.fillCircle(45, 0, 5);
-      g.generateTexture('item_soap', 70, 50);
-      
-      // Toothbrush
-      g.clear(); g.fillStyle(0x4CAF50, 1); g.fillRoundedRect(0, 12, 70, 12, 5);
-      g.fillStyle(0xFFFFFF, 1); g.fillRect(60, 8, 20, 20);
-      g.generateTexture('item_toothbrush', 80, 35);
-    }
-    
-    drawStar(g, cx, cy, points, outerR, innerR) {
-      const step = Math.PI / points;
-      g.beginPath();
-      for (let i = 0; i < 2 * points; i++) {
-        const r = i % 2 === 0 ? outerR : innerR;
-        const angle = i * step - Math.PI / 2;
-        const x = cx + Math.cos(angle) * r;
-        const y = cy + Math.sin(angle) * r;
-        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
-      }
-      g.closePath(); g.fillPath();
-    }
-  }
-
-  // ============ PRELOAD SCENE ============
-  class PreloadScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.PRELOAD }); }
-    
-    create() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const cx = W / 2, cy = H / 2;
-      
-      // Background
-      const bg = this.add.graphics();
-      bg.fillStyle(0x667eea, 1); bg.fillRect(0, 0, W, H);
-      const bg2 = this.add.graphics();
-      bg2.fillStyle(0x764ba2, 1); bg2.fillTriangle(0, 0, W, 0, W, H);
-      
-      // Title
-      this.add.text(cx, cy - 180, 'Baby Care World', {
-        fontSize: '72px', fontFamily: 'Arial', color: '#FFFFFF',
-        fontStyle: 'bold', stroke: '#000000', strokeThickness: 6
-      }).setOrigin(0.5);
-      
-      this.add.text(cx, cy - 100, 'عالم رعاية الأطفال', {
-        fontSize: '36px', fontFamily: 'Arial', color: '#FFD93D', fontStyle: 'bold'
-      }).setOrigin(0.5);
-      
-      // Characters
-      const boy = this.add.image(cx - 150, cy + 80, 'baby_boy').setScale(1.2);
-      const girl = this.add.image(cx + 150, cy + 80, 'baby_girl').setScale(1.2);
-      
-      this.tweens.add({ targets: boy, y: cy + 50, duration: 800, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      this.tweens.add({ targets: girl, y: cy + 50, duration: 800, delay: 400, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      
-      // Loading bar
-      const barW = 400, barH = 20, barX = cx - barW / 2, barY = cy + 250;
-      const barBg = this.add.graphics();
-      barBg.fillStyle(0x000000, 0.3); barBg.fillRoundedRect(barX - 5, barY - 5, barW + 10, barH + 10, 15);
-      const barFill = this.add.graphics();
-      
-      const loadText = this.add.text(cx, barY + 50, 'جاري التحميل...', {
-        fontSize: '24px', fontFamily: 'Arial', color: '#FFFFFF'
-      }).setOrigin(0.5);
-      
-      let progress = 0;
-      const timer = this.time.addEvent({
-        delay: 50,
-        callback: () => {
-          progress += Math.random() * 5 + 2;
-          if (progress >= 100) {
-            progress = 100;
-            timer.remove();
-            loadText.setText('!مرحباً بك');
-            this.time.delayedCall(800, () => {
-              this.cameras.main.fadeOut(500, 0, 0, 0);
-              this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.MENU));
-            });
-          }
-          barFill.clear();
-          barFill.fillStyle(0x4CAF50, 1);
-          barFill.fillRoundedRect(barX, barY, (barW * progress) / 100, barH, 10);
-          loadText.setText('جاري التحميل... ' + Math.floor(progress) + '%');
-        },
-        repeat: -1
+      const decay = { hunger: 0.32, hygiene: 0.2, sleep: 0.24, energy: 0.18, happiness: 0.14 };
+      const needs = this.saveManager.data.babyNeeds;
+      Object.keys(decay).forEach((key) => {
+        needs[key] = Math.max(0, needs[key] - decay[key]);
       });
+      this.saveManager.save();
+    }
+
+    perform(actionId) {
+      const changes = CARE_ACTIONS[actionId];
+      if (!changes) return { ok: false, reason: 'unknown-action' };
+
+      const needs = this.saveManager.data.babyNeeds;
+      const canHelp = Object.entries(changes).some(([key, amount]) => amount > 0 && needs[key] < 100);
+      if (!canHelp) return { ok: false, reason: 'already-full' };
+
+      Object.entries(changes).forEach(([key, amount]) => {
+        needs[key] = Math.max(0, Math.min(100, needs[key] + amount));
+      });
+
+      this.saveManager.data.careActions += 1;
+      this.saveManager.data.coins += 5;
+      const starReward = this.saveManager.data.careActions % 5 === 0 ? 1 : 0;
+      this.saveManager.data.stars += starReward;
+      this.saveManager.save();
+
+      return { ok: true, coinReward: 5, starReward };
+    }
+
+    mood() {
+      const values = Object.values(this.saveManager.data.babyNeeds);
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      if (average >= 80) return { label: 'سعيد جداً', icon: '😄' };
+      if (average >= 60) return { label: 'بخير', icon: '😊' };
+      if (average >= 40) return { label: 'يحتاج إلى رعاية', icon: '😟' };
+      return { label: 'يحتاج إلى مساعدتك', icon: '😢' };
     }
   }
 
-  // ============ MENU SCENE ============
-  class MenuScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.MENU }); this.save = new SaveManager(); }
-    
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const cx = W / 2;
-      
-      // Background
-      const bg = this.add.graphics();
-      bg.fillStyle(0x87CEEB, 1); bg.fillRect(0, 0, W, H);
-      
-      // Ground
-      const ground = this.add.graphics();
-      ground.fillStyle(0x81C784, 1); ground.fillRect(0, H * 0.78, W, H * 0.22);
-      ground.fillStyle(0x66BB6A, 1);
-      for (let x = 0; x < W; x += 200) ground.fillEllipse(x + 100, H * 0.78, 250, 60);
-      
-      // Clouds
-      for (let i = 0; i < 5; i++) {
-        const cloud = this.add.graphics();
-        cloud.fillStyle(0xFFFFFF, 0.85);
-        cloud.fillEllipse(0, 0, 150, 60);
-        cloud.fillEllipse(-40, -10, 90, 45);
-        cloud.fillEllipse(50, -5, 80, 40);
-        cloud.setPosition(Math.random() * W, 60 + Math.random() * 200);
-        this.tweens.add({
-          targets: cloud, x: cloud.x + 100,
-          duration: 10000 + Math.random() * 8000, repeat: -1, yoyo: true, ease: 'Sine.easeInOut'
+  // ---------------------------------------------------------------------------
+  // Shared interface helpers
+  // ---------------------------------------------------------------------------
+  function hidePreloader() {
+    const loader = document.getElementById('pre-loader');
+    if (!loader) return;
+    loader.classList.add('hidden');
+    window.setTimeout(() => loader.remove(), 500);
+  }
+
+  function showToast(scene, message) {
+    if (scene.currentToast && scene.currentToast.active) scene.currentToast.destroy();
+    const toast = scene.add.text(WIDTH / 2, HEIGHT - 74, message, {
+      fontFamily: FONT,
+      fontSize: '25px',
+      color: '#FFFFFF',
+      fontStyle: 'bold',
+      backgroundColor: '#26354DE8',
+      padding: { x: 26, y: 15 },
+      align: 'center'
+    }).setOrigin(0.5).setAlpha(0).setDepth(1200);
+    scene.currentToast = toast;
+
+    scene.tweens.add({
+      targets: toast,
+      alpha: 1,
+      y: HEIGHT - 104,
+      duration: 220,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        scene.tweens.add({
+          targets: toast,
+          alpha: 0,
+          y: HEIGHT - 130,
+          delay: 1450,
+          duration: 250,
+          onComplete: () => toast.destroy()
         });
       }
-      
-      // Sun
-      const sun = this.add.graphics();
-      sun.fillStyle(0xFFD93D, 1); sun.fillCircle(0, 0, 60);
-      sun.setPosition(W - 150, 120);
-      this.tweens.add({ targets: sun, scale: 1.1, duration: 2000, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      
-      // Title
-      this.add.text(cx, 150, 'Baby Care World', {
-        fontSize: '72px', fontFamily: 'Arial', color: '#FFFFFF',
-        fontStyle: 'bold', stroke: '#E91E63', strokeThickness: 8
-      }).setOrigin(0.5);
-      
-      this.add.text(cx, 230, '🍼 عالم رعاية الأطفال 🍼', {
-        fontSize: '32px', fontFamily: 'Arial', color: '#FFD93D', fontStyle: 'bold'
-      }).setOrigin(0.5);
-      
-      // Buttons
-      this.createButton(cx, 400, '🎮  ابدأ اللعب', 0x4CAF50, 0x388E3C, () => this.startGame());
-      this.createButton(cx, 520, '⚙️  الإعدادات', 0x607D8B, 0x455A64, () => this.openSettings());
-      this.createButton(cx, 640, '👗  متجر الملابس', 0xFF9800, 0xF57C00, () => this.showToast('قريباً! 🛍️'));
-      
-      // Characters
-      const boy = this.add.image(200, H - 200, 'baby_boy').setScale(1.5);
-      const girl = this.add.image(W - 200, H - 200, 'baby_girl').setScale(1.5);
-      this.tweens.add({ targets: boy, y: H - 220, duration: 1200, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      this.tweens.add({ targets: girl, y: H - 220, duration: 1200, delay: 600, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      
-      // Currency display
-      const data = this.save.get();
-      this.add.text(W - 150, 50, '🪙 ' + data.coins, { fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', fontStyle: 'bold' });
-      this.add.text(W - 300, 50, '⭐ ' + data.stars, { fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', fontStyle: 'bold' });
-    }
-    
-    createButton(x, y, text, color, border, callback) {
-      const btn = this.add.container(x, y);
-      const bg = this.add.graphics();
-      bg.fillStyle(color, 1); bg.fillRoundedRect(-160, -40, 320, 80, 20);
-      bg.lineStyle(4, border, 1); bg.strokeRoundedRect(-160, -40, 320, 80, 20);
-      const txt = this.add.text(0, 0, text, {
-        fontSize: '32px', fontFamily: 'Arial', color: '#FFFFFF', fontStyle: 'bold'
-      }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      
-      const zone = this.add.zone(0, 0, 320, 80).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      
-      zone.on('pointerdown', () => {
-        this.tweens.add({ targets: btn, scaleX: 0.95, scaleY: 0.95, duration: 50, yoyo: true, onComplete: callback });
-      });
-      zone.on('pointerover', () => { this.tweens.add({ targets: btn, scaleX: 1.05, scaleY: 1.05, duration: 100 }); });
-      zone.on('pointerout', () => { this.tweens.add({ targets: btn, scaleX: 1, scaleY: 1, duration: 100 }); });
-      
-      this.tweens.add({ targets: btn, y: y - 3, duration: 1500 + Math.random() * 500, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-    }
-    
-    startGame() {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.CHARACTER_SELECT));
-    }
-    
-    openSettings() {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.SETTINGS));
-    }
-    
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFFFFF',
-        backgroundColor: '#000000CC', padding: { x: 20, y: 12 }, fontStyle: 'bold'
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      
-      this.tweens.add({
-        targets: toast, alpha: 1, y: CONFIG.HEIGHT - 130, duration: 300, ease: 'Back.easeOut',
-        onComplete: () => {
-          this.tweens.add({
-            targets: toast, alpha: 0, y: CONFIG.HEIGHT - 160, delay: 1500, duration: 300,
-            onComplete: () => toast.destroy()
-          });
-        }
-      });
-    }
+    });
   }
 
-  // ============ CHARACTER SELECT ============
-  class CharacterSelectScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.CHARACTER_SELECT }); this.save = new SaveManager(); }
-    
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const cx = W / 2;
-      
-      this.add.graphics().fillStyle(0xFCE4EC, 1).fillRect(0, 0, W, H);
-      
-      this.add.text(cx, 80, 'اختر شخصيتك', {
-        fontSize: '48px', fontFamily: 'Arial', color: '#E91E63', fontStyle: 'bold'
-      }).setOrigin(0.5);
-      
-      this.selectedChar = this.save.get().selectedCharacter;
-      
-      // Boy card
-      this.createCharCard(cx - 300, H / 2, 'baby_boy', '👦 ولد', 0x4FC3F7);
-      // Girl card
-      this.createCharCard(cx + 300, H / 2, 'baby_girl', ' بنت', 0xF48FB1);
-      
-      // Confirm button
-      const confirmBtn = this.add.container(cx, H - 100);
-      const bg = this.add.graphics();
-      bg.fillStyle(0x4CAF50, 1); bg.fillRoundedRect(-120, -25, 240, 50, 15);
-      const txt = this.add.text(0, 0, '✅ تأكيد الاختيار', { fontSize: '26px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      confirmBtn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 240, 50).setInteractive({ useHandCursor: true });
-      confirmBtn.add(zone);
-      zone.on('pointerdown', () => {
-        this.save.data.selectedCharacter = this.selectedChar;
-        this.save.save();
-        this.cameras.main.fadeOut(400, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
-      });
-      
-      // Back button
-      const backBtn = this.add.container(120, H - 100);
-      const bg2 = this.add.graphics();
-      bg2.fillStyle(0xFF7043, 1); bg2.fillRoundedRect(-60, -25, 120, 50, 15);
-      const txt2 = this.add.text(0, 0, '← رجوع', { fontSize: '22px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      backBtn.add([bg2, txt2]);
-      const zone2 = this.add.zone(0, 0, 120, 50).setInteractive({ useHandCursor: true });
-      backBtn.add(zone2);
-      zone2.on('pointerdown', () => {
-        this.cameras.main.fadeOut(400, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.MENU));
-      });
-    }
-    
-    createCharCard(x, y, charKey, label, color) {
-      const container = this.add.container(x, y);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFFFFFF, 0.9); bg.fillRoundedRect(-150, -250, 300, 500, 20);
-      bg.lineStyle(4, color, 1); bg.strokeRoundedRect(-150, -250, 300, 500, 20);
-      
-      const char = this.add.image(0, -50, charKey).setScale(2);
-      this.tweens.add({ targets: char, y: -70, duration: 1000, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      
-      const name = this.add.text(0, 120, label, { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      container.add([bg, char, name]);
-      
-      const zone = this.add.zone(0, 0, 300, 500).setInteractive({ useHandCursor: true });
+  function navigate(scene, sceneKey, data) {
+    if (scene.isNavigating) return;
+    scene.isNavigating = true;
+    scene.cameras.main.fadeOut(220, 37, 48, 75);
+    scene.cameras.main.once('camerafadeoutcomplete', () => scene.scene.start(sceneKey, data));
+  }
+
+  function addButton(scene, options) {
+    const {
+      x, y, width = 320, height = 76, label, color = 0x4CAF50,
+      border = 0x388E3C, fontSize = 27, onClick, depth = 20, disabled = false
+    } = options;
+    const container = scene.add.container(x, y).setDepth(depth);
+    const background = scene.add.graphics();
+    background.fillStyle(disabled ? 0xAAB4BE : color, 1);
+    background.fillRoundedRect(-width / 2, -height / 2, width, height, 22);
+    background.lineStyle(4, disabled ? 0x8F9AA5 : border, 1);
+    background.strokeRoundedRect(-width / 2, -height / 2, width, height, 22);
+    const text = scene.add.text(0, 0, label, {
+      fontFamily: FONT, fontSize: `${fontSize}px`, color: '#FFFFFF',
+      fontStyle: 'bold', align: 'center', wordWrap: { width: width - 28 }
+    }).setOrigin(0.5);
+    container.add([background, text]);
+
+    if (!disabled) {
+      const zone = scene.add.zone(0, 0, width, height).setInteractive({ useHandCursor: true });
       container.add(zone);
       zone.on('pointerdown', () => {
-        this.selectedChar = charKey;
-        this.showToast('تم اختيار: ' + label);
-      });
-    }
-    
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 150, msg, {
-        fontSize: '24px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 10 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1000, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
-
-  // ============ HOUSE SCENE ============
-  class HouseScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.HOUSE }); this.save = new SaveManager(); this.needs = null; }
-    
-    create() {
-      this.save.init();
-      this.needs = new NeedsManager(this.save);
-      
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.worldWidth = W * 2;
-      
-      // Background
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFFF8E1, 1); bg.fillRect(0, 0, this.worldWidth, H);
-      bg.fillStyle(0xA1887F, 1); bg.fillRect(0, H * 0.78, this.worldWidth, H * 0.22);
-      
-      // Rooms
-      const rooms = [
-        { key: 'living', name: '🛋️ غرفة المعيشة', scene: CONFIG.SCENES.LIVING_ROOM, color: 0xFFE4B5 },
-        { key: 'kitchen', name: '🍳 المطبخ', scene: CONFIG.SCENES.KITCHEN, color: 0xFFDAB9 },
-        { key: 'bathroom', name: '🛁 الحمام', scene: CONFIG.SCENES.BATHROOM, color: 0xE0F7FA },
-        { key: 'bedroom', name: '🛏️ غرفة النوم', scene: CONFIG.SCENES.BEDROOM, color: 0xF3E5F5 },
-        { key: 'playroom', name: '🧸 غرفة الألعاب', scene: CONFIG.SCENES.PLAYROOM, color: 0xFFF9C4 },
-        { key: 'garden', name: '🌳 الحديقة', scene: CONFIG.SCENES.GARDEN, color: 0xC8E6C9 }
-      ];
-      
-      const roomW = this.worldWidth / 3;
-      
-      rooms.forEach((room, i) => {
-        const rx = (i % 3) * roomW;
-        const ry = Math.floor(i / 3) * (H / 2);
-        const cx = rx + roomW / 2;
-        const cy = ry + H / 4;
-        
-        // Room background
-        const roomBg = this.add.graphics();
-        roomBg.fillStyle(room.color, 0.5);
-        roomBg.fillRoundedRect(rx + 20, ry + 20, roomW - 40, H / 2 - 40, 20);
-        
-        // Room label
-        this.add.text(cx, cy - 30, room.name, {
-          fontSize: '28px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold'
-        }).setOrigin(0.5);
-        
-        // Interactive zone
-        const zone = this.add.zone(cx, cy, roomW - 40, H / 2 - 40).setInteractive({ useHandCursor: true });
-        zone.on('pointerdown', () => this.enterRoom(room.scene));
-        
-        zone.on('pointerover', () => {
-          roomBg.clear();
-          roomBg.fillStyle(room.color, 0.8);
-          roomBg.fillRoundedRect(rx + 20, ry + 20, roomW - 40, H / 2 - 40, 20);
-        });
-        
-        zone.on('pointerout', () => {
-          roomBg.clear();
-          roomBg.fillStyle(room.color, 0.5);
-          roomBg.fillRoundedRect(rx + 20, ry + 20, roomW - 40, H / 2 - 40, 20);
+        if (typeof onClick !== 'function' || scene.isNavigating) return;
+        scene.tweens.add({
+          targets: container, scaleX: 0.97, scaleY: 0.97, duration: 65, yoyo: true,
+          onComplete: () => { if (container.active && !scene.isNavigating) onClick(); }
         });
       });
-      
-      // Baby character
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W / 2, H * 0.6, charKey)
-        .setScale(1.3).setOrigin(0.5).setDepth(10)
-        .setInteractive({ draggable: true });
-      
-      this.tweens.add({ targets: this.baby, y: this.baby.y - 8, duration: 1200, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
-      
-      this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-        if (gameObject === this.baby) {
-          gameObject.x = dragX;
-          gameObject.y = Phaser.Math.Clamp(dragY, 200, H * 0.75);
+      zone.on('pointerover', () => {
+        if (!scene.isNavigating) scene.tweens.add({ targets: container, scaleX: 1.025, scaleY: 1.025, duration: 100 });
+      });
+      zone.on('pointerout', () => {
+        if (container.active) scene.tweens.add({ targets: container, scaleX: 1, scaleY: 1, duration: 100 });
+      });
+    }
+    return { container, text, background };
+  }
+
+  function createHud(scene, saveManager, needsManager) {
+    const depth = 100;
+    const panel = scene.add.graphics().setDepth(depth);
+    panel.fillStyle(0xFFFFFF, 0.94);
+    panel.fillRoundedRect(32, 22, WIDTH - 64, 142, 28);
+    panel.lineStyle(3, 0xFFFFFF, 0.85);
+    panel.strokeRoundedRect(32, 22, WIDTH - 64, 142, 28);
+
+    const title = scene.add.text(76, 58, '🍼 عالم رعاية الأطفال', {
+      fontFamily: FONT, fontSize: '25px', color: '#26354D', fontStyle: 'bold'
+    }).setOrigin(0, 0.5).setDepth(depth + 1);
+    const moodText = scene.add.text(78, 111, '', {
+      fontFamily: FONT, fontSize: '19px', color: '#617187', fontStyle: 'bold'
+    }).setOrigin(0, 0.5).setDepth(depth + 1);
+
+    const bars = [];
+    const barWidth = 174;
+    const startX = 385;
+    const step = 204;
+    Object.entries(STAT_META).forEach(([key, meta], index) => {
+      const x = startX + index * step;
+      const label = scene.add.text(x, 62, `${meta.icon} ${meta.label}`, {
+        fontFamily: FONT, fontSize: '18px', color: '#46556A', fontStyle: 'bold'
+      }).setOrigin(0, 0.5).setDepth(depth + 1);
+      const value = scene.add.text(x + barWidth, 62, '', {
+        fontFamily: FONT, fontSize: '17px', color: '#46556A', fontStyle: 'bold'
+      }).setOrigin(1, 0.5).setDepth(depth + 1);
+      const track = scene.add.graphics().setDepth(depth + 1);
+      track.fillStyle(0xE8EDF3, 1);
+      track.fillRoundedRect(x, 91, barWidth, 17, 9);
+      const fill = scene.add.graphics().setDepth(depth + 2);
+      bars.push({ key, meta, label, value, fill, x });
+    });
+
+    const coinText = scene.add.text(1514, 93, '', {
+      fontFamily: FONT, fontSize: '22px', color: '#805A00', fontStyle: 'bold'
+    }).setOrigin(0, 0.5).setDepth(depth + 1);
+    const starText = scene.add.text(1700, 93, '', {
+      fontFamily: FONT, fontSize: '22px', color: '#8B5B00', fontStyle: 'bold'
+    }).setOrigin(0, 0.5).setDepth(depth + 1);
+
+    function refresh() {
+      const needs = needsManager.get();
+      bars.forEach(({ key, meta, value, fill, x }) => {
+        const percent = Math.round(needs[key]);
+        value.setText(`${percent}%`);
+        fill.clear();
+        fill.fillStyle(meta.color, 1);
+        if (percent > 0) fill.fillRoundedRect(x, 91, barWidth * percent / 100, 17, 9);
+      });
+      const mood = needsManager.mood();
+      moodText.setText(`حالة الطفل: ${mood.icon} ${mood.label}`);
+      coinText.setText(`🪙 ${saveManager.data.coins}`);
+      starText.setText(`⭐ ${saveManager.data.stars}`);
+    }
+
+    refresh();
+    return { refresh };
+  }
+
+  function addCharacter(scene, saveManager, x, y, scale, depth = 12) {
+    const characterKey = saveManager.data.selectedCharacter;
+    const image = scene.add.image(x, y, characterKey).setScale(scale).setDepth(depth);
+    const accessory = SHOP_ITEMS.find((item) => item.id === saveManager.data.equippedAccessory);
+    let accessoryText = null;
+    if (accessory) {
+      accessoryText = scene.add.text(x, y - image.displayHeight * 0.36, accessory.icon, {
+        fontFamily: FONT,
+        fontSize: `${Math.max(28, Math.round(46 * scale))}px`
+      }).setOrigin(0.5).setDepth(depth + 1);
+    }
+    return { image, accessoryText };
+  }
+
+  function animateCharacter(scene, character, saveManager, distance = 11, duration = 1200) {
+    if (saveManager.data.settings.reduceMotion) return;
+    const targets = [character.image];
+    if (character.accessoryText) targets.push(character.accessoryText);
+    scene.tweens.add({
+      targets,
+      y: `-=${distance}`,
+      duration,
+      repeat: -1,
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  function addCloud(scene, x, y, scale, saveManager) {
+    const cloud = scene.add.graphics();
+    cloud.fillStyle(0xFFFFFF, 0.82);
+    cloud.fillEllipse(0, 0, 145, 58);
+    cloud.fillEllipse(-42, -10, 85, 44);
+    cloud.fillEllipse(35, -17, 92, 57);
+    cloud.fillEllipse(70, 0, 75, 40);
+    cloud.setPosition(x, y).setScale(scale);
+    if (!saveManager.data.settings.reduceMotion) {
+      scene.tweens.add({ targets: cloud, x: x + 90, duration: 9500 + x % 2400, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
+    }
+    return cloud;
+  }
+
+  function drawMenuBackground(scene, saveManager) {
+    const sky = scene.add.graphics();
+    sky.fillStyle(0xA9DFF7, 1);
+    sky.fillRect(0, 0, WIDTH, HEIGHT);
+    sky.fillStyle(0xDFF5FF, 0.58);
+    sky.fillEllipse(960, 680, 2200, 430);
+
+    const sun = scene.add.graphics();
+    sun.fillStyle(0xFFE07A, 1);
+    sun.fillCircle(0, 0, 72);
+    sun.setPosition(1660, 190);
+    if (!saveManager.data.settings.reduceMotion) {
+      scene.tweens.add({ targets: sun, scale: 1.08, duration: 2100, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
+    }
+
+    addCloud(scene, 290, 150, 1.0, saveManager);
+    addCloud(scene, 1010, 125, 0.82, saveManager);
+    addCloud(scene, 1420, 300, 0.7, saveManager);
+
+    const landscape = scene.add.graphics();
+    landscape.fillStyle(0x9DD9A0, 1);
+    landscape.fillEllipse(280, 900, 900, 310);
+    landscape.fillEllipse(1430, 870, 1160, 350);
+    landscape.fillStyle(0x6FC481, 1);
+    landscape.fillRect(0, 864, WIDTH, 216);
+    landscape.fillStyle(0x5BB875, 1);
+    landscape.fillEllipse(950, 875, 2300, 130);
+
+    for (let i = 0; i < 8; i += 1) {
+      const flower = scene.add.graphics();
+      const colors = [0xFF85A1, 0xFFE46B, 0xB9A1F2, 0xFFFFFF];
+      flower.fillStyle(0x4F9A54, 1);
+      flower.fillRect(0, 8, 5, 34);
+      flower.fillStyle(colors[i % colors.length], 1);
+      flower.fillCircle(2, 1, 9);
+      flower.fillStyle(0xFFE47A, 1);
+      flower.fillCircle(2, 1, 3);
+      flower.setPosition(150 + i * 225, 900 + (i % 3) * 40);
+    }
+  }
+
+  function makeTexture(scene, key, width, height, draw) {
+    const graphics = scene.make.graphics({ x: 0, y: 0, add: false });
+    draw(graphics);
+    graphics.generateTexture(key, width, height);
+    graphics.destroy();
+  }
+
+  function createFallbackCharacter(scene, key, bodyColor, hairColor) {
+    makeTexture(scene, key, 512, 640, (g) => {
+      g.fillStyle(0x594A55, 0.16); g.fillEllipse(256, 600, 260, 42);
+      g.fillStyle(0xFFE0C5, 1); g.fillCircle(256, 232, 132);
+      g.fillStyle(hairColor, 1); g.fillEllipse(256, 125, 218, 112);
+      g.fillStyle(bodyColor, 1); g.fillRoundedRect(150, 340, 212, 226, 55);
+      g.fillStyle(0xFFE0C5, 1); g.fillRoundedRect(100, 365, 62, 158, 28); g.fillRoundedRect(350, 365, 62, 158, 28);
+      g.fillRoundedRect(186, 526, 62, 76, 26); g.fillRoundedRect(264, 526, 62, 76, 26);
+      g.fillStyle(0xFFFFFF, 1); g.fillCircle(210, 240, 25); g.fillCircle(302, 240, 25);
+      g.fillStyle(0x4B3A3B, 1); g.fillCircle(214, 246, 12); g.fillCircle(306, 246, 12);
+      g.fillStyle(0xF19A94, 0.7); g.fillCircle(180, 295, 19); g.fillCircle(332, 295, 19);
+      g.lineStyle(9, 0xA95A5B, 1); g.beginPath(); g.arc(256, 286, 34, 0.15 * Math.PI, 0.85 * Math.PI); g.strokePath();
+    });
+  }
+
+  function createWorldTextures(scene) {
+    makeTexture(scene, 'furniture_sofa', 520, 340, (g) => {
+      g.fillStyle(0x8A584E, 1); g.fillRoundedRect(26, 120, 468, 190, 36);
+      g.fillStyle(0xB46D62, 1); g.fillRoundedRect(43, 58, 434, 172, 42);
+      g.fillStyle(0xD98A7C, 1); g.fillRoundedRect(74, 98, 170, 150, 32); g.fillRoundedRect(276, 98, 170, 150, 32);
+      g.fillStyle(0xECA698, 1); g.fillRoundedRect(92, 260, 336, 80, 26);
+      g.fillStyle(0x775047, 1); g.fillRect(70, 302, 24, 33); g.fillRect(426, 302, 24, 33);
+      g.lineStyle(7, 0x774A43, 1); g.strokeRoundedRect(26, 120, 468, 190, 36);
+    });
+
+    makeTexture(scene, 'furniture_kitchen', 520, 360, (g) => {
+      g.fillStyle(0x9D6B56, 1); g.fillRoundedRect(20, 78, 480, 252, 18);
+      g.fillStyle(0xF7F1E9, 1); g.fillRoundedRect(10, 48, 500, 52, 14);
+      g.fillStyle(0xC58B70, 1); g.fillRect(36, 120, 130, 195); g.fillRect(181, 120, 150, 195); g.fillRect(346, 120, 137, 195);
+      g.lineStyle(5, 0x8A5B4B, 1); g.strokeRect(36, 120, 130, 195); g.strokeRect(181, 120, 150, 195); g.strokeRect(346, 120, 137, 195);
+      g.fillStyle(0xEAD7BD, 1); g.fillRoundedRect(53, 137, 96, 69, 8); g.fillRoundedRect(199, 137, 114, 69, 8); g.fillRoundedRect(363, 137, 103, 69, 8);
+      g.fillStyle(0x625960, 1); g.fillRoundedRect(204, 222, 108, 77, 10);
+      g.fillStyle(0xE9C46A, 1); g.fillCircle(224, 244, 8); g.fillCircle(292, 244, 8); g.fillCircle(224, 278, 8); g.fillCircle(292, 278, 8);
+      g.fillStyle(0xBCE4EF, 1); g.fillRoundedRect(377, 224, 78, 71, 9);
+      g.lineStyle(5, 0x8A5B4B, 1); g.strokeRoundedRect(10, 48, 500, 52, 14);
+    });
+
+    makeTexture(scene, 'furniture_bathtub', 540, 350, (g) => {
+      g.fillStyle(0x8EADB5, 1); g.fillRoundedRect(35, 117, 470, 205, 58);
+      g.fillStyle(0xF7FFFF, 1); g.fillRoundedRect(48, 76, 445, 95, 48);
+      g.fillStyle(0xA8E3F5, 1); g.fillRoundedRect(76, 117, 389, 152, 42);
+      g.fillStyle(0xD4F5FC, 0.8); g.fillCircle(165, 172, 14); g.fillCircle(229, 212, 9); g.fillCircle(356, 177, 12); g.fillCircle(402, 227, 8);
+      g.fillStyle(0x829DA4, 1); g.fillRoundedRect(65, 302, 30, 32, 8); g.fillRoundedRect(447, 302, 30, 32, 8);
+      g.fillStyle(0x90A4AE, 1); g.fillRect(431, 37, 18, 68); g.fillRoundedRect(410, 30, 60, 24, 10);
+      g.lineStyle(7, 0x718E96, 1); g.strokeRoundedRect(35, 117, 470, 205, 58);
+    });
+
+    makeTexture(scene, 'furniture_bed', 550, 360, (g) => {
+      g.fillStyle(0x805D76, 1); g.fillRoundedRect(20, 88, 510, 240, 30);
+      g.fillStyle(0x9A7791, 1); g.fillRoundedRect(20, 65, 510, 95, 26);
+      g.fillStyle(0xFFF9FC, 1); g.fillRoundedRect(42, 104, 180, 85, 24);
+      g.fillStyle(0xE8DDF5, 1); g.fillRoundedRect(224, 116, 285, 174, 23);
+      g.fillStyle(0xC0A7D8, 1); g.fillRoundedRect(250, 140, 220, 18, 9);
+      g.fillStyle(0xFFDA78, 1); g.fillCircle(363, 214, 26);
+      g.lineStyle(6, 0x70536A, 1); g.strokeRoundedRect(20, 88, 510, 240, 30);
+      g.fillStyle(0x674C61, 1); g.fillRect(50, 310, 24, 40); g.fillRect(475, 310, 24, 40);
+    });
+
+    makeTexture(scene, 'furniture_toys', 430, 360, (g) => {
+      g.fillStyle(0xE94F64, 1); g.fillRoundedRect(37, 217, 120, 118, 15);
+      g.fillStyle(0x42A5F5, 1); g.fillRoundedRect(166, 155, 117, 180, 14);
+      g.fillStyle(0xFFCA55, 1); g.fillRoundedRect(292, 205, 101, 130, 15);
+      g.fillStyle(0x75D89A, 1); g.fillRoundedRect(103, 111, 112, 103, 16);
+      g.fillStyle(0xF48FB1, 1); g.fillCircle(326, 122, 55);
+      g.fillStyle(0xFFFFFF, 0.75); g.fillCircle(309, 106, 13);
+      g.fillStyle(0x5F4B58, 1); g.fillCircle(315, 124, 5); g.fillCircle(339, 124, 5);
+      g.lineStyle(6, 0xFFFFFF, 0.8); g.strokeRoundedRect(37, 217, 120, 118, 15); g.strokeRoundedRect(166, 155, 117, 180, 14); g.strokeRoundedRect(292, 205, 101, 130, 15);
+      g.fillStyle(0xFFF6D0, 1); g.fillCircle(87, 263, 8); g.fillCircle(212, 215, 8); g.fillCircle(335, 258, 8);
+    });
+
+    makeTexture(scene, 'furniture_tree', 440, 520, (g) => {
+      g.fillStyle(0x7A4D38, 1); g.fillRoundedRect(187, 270, 68, 228, 16);
+      g.fillStyle(0x54A665, 1); g.fillCircle(220, 177, 116); g.fillCircle(137, 225, 82); g.fillCircle(303, 220, 88); g.fillCircle(207, 95, 76);
+      g.fillStyle(0x77C875, 1); g.fillCircle(176, 154, 45); g.fillCircle(262, 195, 48); g.fillCircle(120, 223, 28);
+      g.fillStyle(0xF06292, 1); g.fillCircle(177, 205, 12); g.fillCircle(269, 120, 12); g.fillCircle(318, 238, 12);
+      g.fillStyle(0xFFE082, 1); g.fillCircle(177, 205, 5); g.fillCircle(269, 120, 5); g.fillCircle(318, 238, 5);
+    });
+
+    makeTexture(scene, 'food_apple', 130, 140, (g) => {
+      g.fillStyle(0xE94B4B, 1); g.fillCircle(65, 77, 51); g.fillCircle(39, 80, 35); g.fillCircle(91, 80, 35);
+      g.fillStyle(0x6EBB62, 1); g.fillEllipse(83, 17, 42, 21);
+      g.lineStyle(8, 0x72503D, 1); g.lineBetween(66, 39, 72, 12);
+      g.fillStyle(0xFFFFFF, 0.65); g.fillCircle(44, 58, 9);
+    });
+
+    makeTexture(scene, 'food_bottle', 112, 170, (g) => {
+      g.fillStyle(0xD8F1FC, 1); g.fillRoundedRect(19, 47, 74, 112, 18);
+      g.fillStyle(0xFFF0CB, 1); g.fillRoundedRect(25, 85, 62, 66, 13);
+      g.fillStyle(0xFFFFFF, 1); g.fillRoundedRect(32, 22, 48, 37, 10);
+      g.fillStyle(0xA7D9EA, 1); g.fillRoundedRect(40, 6, 32, 24, 7);
+      g.lineStyle(5, 0x72AFC1, 1); g.strokeRoundedRect(19, 47, 74, 112, 18);
+    });
+
+    makeTexture(scene, 'icon_heart', 90, 90, (g) => {
+      g.fillStyle(0xF05E91, 1);
+      g.fillCircle(30, 31, 22); g.fillCircle(60, 31, 22);
+      g.fillTriangle(9, 34, 81, 34, 45, 80);
+      g.fillStyle(0xFFFFFF, 0.62); g.fillCircle(28, 26, 6);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scenes
+  // ---------------------------------------------------------------------------
+  class BootScene extends Phaser.Scene {
+    constructor() { super({ key: 'BootScene' }); }
+
+    preload() {
+      Object.entries(CHARACTERS).forEach(([key, character]) => this.load.image(key, character.asset));
+      this.load.on('loaderror', (file) => console.warn(`Could not load ${file.src}; using the built-in character fallback.`));
+    }
+
+    create() {
+      if (!this.textures.exists('baby_boy')) createFallbackCharacter(this, 'baby_boy', 0x58BCE8, 0x604331);
+      if (!this.textures.exists('baby_girl')) createFallbackCharacter(this, 'baby_girl', 0xF079A7, 0x4B303B);
+      createWorldTextures(this);
+      this.scene.start('MenuScene');
+    }
+  }
+
+  class MenuScene extends Phaser.Scene {
+    constructor() { super({ key: 'MenuScene' }); }
+
+    create() {
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      drawMenuBackground(this, this.saveManager);
+
+      this.add.text(660, 240, 'Baby Care World', {
+        fontFamily: FONT, fontSize: '78px', color: '#FFFFFF', fontStyle: 'bold',
+        stroke: '#E45E92', strokeThickness: 10, shadow: { offsetX: 3, offsetY: 5, color: '#7A5272', blur: 10, fill: true }
+      }).setOrigin(0.5);
+      this.add.text(660, 320, 'عالم صغير مليء بالحب والمرح', {
+        fontFamily: FONT, fontSize: '36px', color: '#FFF8C9', fontStyle: 'bold',
+        stroke: '#659A7A', strokeThickness: 4
+      }).setOrigin(0.5);
+      this.add.text(660, 372, 'أطعمه، العب معه، وساعده على النمو بسعادة.', {
+        fontFamily: FONT, fontSize: '25px', color: '#486474', fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      addButton(this, {
+        x: 660, y: 500, width: 430, height: 88,
+        label: '🎮  ابدأ اللعب', color: 0x52B878, border: 0x36945A, fontSize: 31,
+        onClick: () => navigate(this, 'CharacterSelectScene')
+      });
+      addButton(this, {
+        x: 660, y: 620, width: 430, height: 82,
+        label: '🎁  متجر الإكسسوارات', color: 0xF2A64A, border: 0xCD7B2C, fontSize: 28,
+        onClick: () => navigate(this, 'ShopScene')
+      });
+      addButton(this, {
+        x: 660, y: 735, width: 430, height: 78,
+        label: '⚙️  الإعدادات', color: 0x788DA2, border: 0x5B7085, fontSize: 27,
+        onClick: () => navigate(this, 'SettingsScene')
+      });
+
+      const character = addCharacter(this, this.saveManager, 1430, 660, 0.75, 10);
+      animateCharacter(this, character, this.saveManager, 14, 1250);
+      this.add.text(1430, 975, `🪙 ${this.saveManager.data.coins}     ⭐ ${this.saveManager.data.stars}`, {
+        fontFamily: FONT, fontSize: '26px', color: '#614932', fontStyle: 'bold',
+        backgroundColor: '#FFFFFFCC', padding: { x: 24, y: 14 }
+      }).setOrigin(0.5);
+
+      this.cameras.main.fadeIn(250, 255, 255, 255);
+      hidePreloader();
+    }
+  }
+
+  class CharacterSelectScene extends Phaser.Scene {
+    constructor() { super({ key: 'CharacterSelectScene' }); }
+
+    create() {
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      this.selectedCharacter = this.saveManager.data.selectedCharacter;
+      this.cardBackgrounds = {};
+      this.cardMarks = {};
+
+      const background = this.add.graphics();
+      background.fillStyle(0xF9EAF1, 1); background.fillRect(0, 0, WIDTH, HEIGHT);
+      background.fillStyle(0xE7F5FE, 1); background.fillEllipse(970, 1030, 2200, 440);
+
+      this.add.text(WIDTH / 2, 220, 'اختر صديقك الصغير', {
+        fontFamily: FONT, fontSize: '53px', color: '#9C4D79', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      this.add.text(WIDTH / 2, 278, 'يمكنك تغيير اختيارك لاحقاً من هذه الشاشة.', {
+        fontFamily: FONT, fontSize: '24px', color: '#6E7181'
+      }).setOrigin(0.5);
+
+      this.createCard(690, 570, 'baby_boy', 'الطفل', 0x58BCE8);
+      this.createCard(1230, 570, 'baby_girl', 'الطفلة', 0xF079A7);
+      this.refreshCards();
+
+      addButton(this, {
+        x: 745, y: 925, width: 300, height: 72,
+        label: '←  القائمة', color: 0x8795A4, border: 0x667482, fontSize: 25,
+        onClick: () => navigate(this, 'MenuScene')
+      });
+      addButton(this, {
+        x: 1175, y: 925, width: 360, height: 72,
+        label: '✅  تأكيد الاختيار', color: 0x52B878, border: 0x36945A, fontSize: 26,
+        onClick: () => {
+          this.saveManager.data.selectedCharacter = this.selectedCharacter;
+          this.saveManager.save();
+          navigate(this, 'HouseScene');
         }
       });
-      
-      // HUD
-      this.createHUD();
-      
-      // Back button
-      this.createBackButton();
-      
-      // Needs decay
-      this.needsTimer = this.time.addEvent({
-        delay: 5000, loop: true,
-        callback: () => { this.needs.tick(); this.updateHUD(); }
-      });
-    }
-    
-    createHUD() {
-      const W = CONFIG.WIDTH;
-      const data = this.save.get();
-      this.add.text(W - 150, 50, '🪙 ' + data.coins, { fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', fontStyle: 'bold' }).setDepth(100);
-      this.add.text(W - 300, 50, '⭐ ' + data.stars, { fontSize: '24px', fontFamily: 'Arial', color: '#FFD700', fontStyle: 'bold' }).setDepth(100);
-    }
-    
-    updateHUD() {
-      // Update HUD with current needs
-    }
-    
-    createBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(W - 120, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, ' القائمة', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.save.save();
-        this.cameras.main.fadeOut(400, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.MENU));
-      });
-    }
-    
-    enterRoom(sceneKey) {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(sceneKey));
-    }
-    
-    shutdown() {
-      if (this.needsTimer) this.needsTimer.remove();
-    }
-  }
 
-  // ============ ROOM SCENES (Simple versions) ============
-  class LivingRoomScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.LIVING_ROOM }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0xFFE4B5, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0xA1887F, 1).fillRect(0, H * 0.75, W, H * 0.25);
-      
-      this.add.text(W / 2, 80, '🛋️ غرفة المعيشة', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // TV
-      const tv = this.add.image(W / 2, H / 2, 'furniture_tv').setScale(2).setInteractive({ useHandCursor: true });
-      tv.on('pointerdown', () => this.showToast(' التلفاز يعمل!'));
-      
-      // Couch
-      this.add.image(W * 0.7, H * 0.65, 'furniture_chair').setScale(3);
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.3, H * 0.65, charKey).setScale(1.3);
-      
-      this.addBackButton();
+      this.cameras.main.fadeIn(220, 249, 234, 241);
     }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, '🏠 المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
-      });
-    }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
 
-  class KitchenScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.KITCHEN }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0xFFDAB9, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0xBCAAA4, 1).fillRect(0, H * 0.75, W, H * 0.25);
-      
-      this.add.text(W / 2, 80, '🍳 المطبخ', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // Food items
-      const apple = this.add.image(W * 0.3, H * 0.5, 'food_apple').setScale(3).setInteractive({ draggable: true });
-      const bottle = this.add.image(W * 0.5, H * 0.5, 'food_bottle').setScale(3).setInteractive({ draggable: true });
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.7, H * 0.65, charKey).setScale(1.3);
-      
-      this.input.on('drag', (pointer, obj, dragX, dragY) => { obj.x = dragX; obj.y = dragY; });
-      this.input.on('dragend', (pointer, obj) => {
-        const dist = Phaser.Math.Distance.Between(obj.x, obj.y, this.baby.x, this.baby.y);
-        if (dist < 100) {
-          this.showToast('🍎 الطفل يأكل!');
-          obj.x = obj.x < W / 2 ? W * 0.3 : W * 0.5;
-          obj.y = H * 0.5;
-        } else {
-          obj.x = obj.x < W / 2 ? W * 0.3 : W * 0.5;
-          obj.y = H * 0.5;
-        }
-      });
-      
-      this.addBackButton();
-    }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, '🏠 المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
+    createCard(x, y, key, label, accent) {
+      const container = this.add.container(x, y).setDepth(10);
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0xFFFFFF, 0.92);
+      graphics.fillRoundedRect(-215, -242, 430, 484, 32);
+      graphics.lineStyle(6, accent, 1);
+      graphics.strokeRoundedRect(-215, -242, 430, 484, 32);
+      const character = this.add.image(0, -26, key).setScale(0.67);
+      const name = this.add.text(0, 210, label, {
+        fontFamily: FONT, fontSize: '40px', color: '#485466', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      const mark = this.add.text(0, -197, '', {
+        fontFamily: FONT, fontSize: '24px', color: '#FFFFFF', fontStyle: 'bold',
+        backgroundColor: '#55B879', padding: { x: 16, y: 8 }
+      }).setOrigin(0.5);
+      const zone = this.add.zone(0, 0, 430, 484).setInteractive({ useHandCursor: true });
+      container.add([graphics, character, name, mark, zone]);
       zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
+        this.selectedCharacter = key;
+        this.refreshCards();
       });
-    }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
+      this.cardBackgrounds[key] = { graphics, accent };
+      this.cardMarks[key] = mark;
 
-  class BathroomScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.BATHROOM }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0xE0F7FA, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0xB2DFDB, 1).fillRect(0, H * 0.75, W, H * 0.25);
-      
-      this.add.text(W / 2, 80, '🛁 الحمام', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // Bathtub
-      this.add.image(W / 2, H * 0.6, 'furniture_bathtub').setScale(2).setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.showToast('🛁 حوض الاستحمام'));
-      
-      // Soap
-      const soap = this.add.image(W * 0.3, H * 0.5, 'item_soap').setScale(3).setInteractive({ draggable: true });
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.7, H * 0.65, charKey).setScale(1.3);
-      
-      this.input.on('drag', (pointer, obj, dragX, dragY) => { obj.x = dragX; obj.y = dragY; });
-      this.input.on('dragend', (pointer, obj) => {
-        const dist = Phaser.Math.Distance.Between(obj.x, obj.y, this.baby.x, this.baby.y);
-        if (dist < 100) {
-          this.showToast('🧼 الطفل يستحم!');
-          obj.x = W * 0.3; obj.y = H * 0.5;
-        } else {
-          obj.x = W * 0.3; obj.y = H * 0.5;
-        }
-      });
-      
-      this.addBackButton();
-    }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, '🏠 المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
-      });
-    }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
-
-  class BedroomScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.BEDROOM }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0xF3E5F5, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0xCE93D8, 1).fillRect(0, H * 0.75, W, H * 0.25);
-      
-      this.add.text(W / 2, 80, '🛏️ غرفة النوم', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // Bed
-      const bed = this.add.image(W / 2, H * 0.6, 'furniture_bed').setScale(1.5).setInteractive({ useHandCursor: true });
-      bed.on('pointerdown', () => {
-        const charKey = this.save.get().selectedCharacter;
-        this.baby.setTexture(charKey + '_sleep');
-        this.showToast(' الطفل نائم... تصبح على خير!');
-        this.time.delayedCall(3000, () => {
-          this.baby.setTexture(charKey);
-          this.showToast('☀️ استيقظ الطفل!');
-        });
-      });
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.3, H * 0.65, charKey).setScale(1.3);
-      
-      this.addBackButton();
-    }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, ' المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
-      });
-    }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
-
-  class PlayroomScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.PLAYROOM }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0xFFF9C4, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0xFFF176, 1).fillRect(0, H * 0.75, W, H * 0.25);
-      
-      this.add.text(W / 2, 80, '🧸 غرفة الألعاب', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // Toys
-      const toys = this.add.image(W / 2, H * 0.6, 'furniture_toys').setScale(4).setInteractive({ useHandCursor: true });
-      toys.on('pointerdown', () => this.showToast('🧸 الطفل يلعب بالألعاب!'));
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.3, H * 0.65, charKey).setScale(1.3);
-      
-      this.addBackButton();
-    }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, '🏠 المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
-      });
-    }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
-    }
-  }
-
-  class GardenScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.GARDEN }); this.save = new SaveManager(); }
-    create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      this.add.graphics().fillStyle(0x87CEEB, 1).fillRect(0, 0, W, H);
-      this.add.graphics().fillStyle(0x81C784, 1).fillRect(0, H * 0.7, W, H * 0.3);
-      
-      this.add.text(W / 2, 80, '🌳 الحديقة', { fontSize: '36px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold' }).setOrigin(0.5);
-      
-      // Tree
-      const tree = this.add.graphics();
-      tree.fillStyle(0x795548, 1); tree.fillRect(W * 0.2 - 15, H * 0.4, 30, H * 0.3);
-      tree.fillStyle(0x388E3C, 1);
-      tree.fillCircle(W * 0.2, H * 0.35, 60);
-      tree.fillCircle(W * 0.2 - 40, H * 0.4, 40);
-      tree.fillCircle(W * 0.2 + 40, H * 0.4, 40);
-      
-      // Flowers
-      for (let i = 0; i < 10; i++) {
-        const fx = 100 + Math.random() * (W - 200);
-        const fy = H * 0.75 + Math.random() * (H * 0.2);
-        const flower = this.add.graphics();
-        const colors = [0xFF4081, 0xFFEB3B, 0x7C4DFF, 0xFF6D00];
-        flower.fillStyle(colors[i % 4], 1);
-        flower.fillCircle(0, -10, 8);
-        flower.fillStyle(0xFFEB3B, 1);
-        flower.fillCircle(0, -10, 3);
-        flower.lineStyle(2, 0x388E3C, 1);
-        flower.lineBetween(0, 0, 0, 20);
-        flower.setPosition(fx, fy);
-        this.tweens.add({ targets: flower, rotation: 0.1, duration: 1500 + Math.random() * 1000, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
+      if (!this.saveManager.data.settings.reduceMotion) {
+        this.tweens.add({ targets: character, y: -39, duration: 1250, repeat: -1, yoyo: true, ease: 'Sine.easeInOut' });
       }
-      
-      // Baby
-      const charKey = this.save.get().selectedCharacter;
-      this.baby = this.add.image(W * 0.5, H * 0.65, charKey).setScale(1.3);
-      
-      this.addBackButton();
     }
-    addBackButton() {
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const btn = this.add.container(100, H - 50);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xFF7043, 1); bg.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt = this.add.text(0, 0, '🏠 المنزل', { fontSize: '20px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      btn.add(zone);
-      zone.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.HOUSE));
+
+    refreshCards() {
+      Object.keys(this.cardBackgrounds).forEach((key) => {
+        const { graphics, accent } = this.cardBackgrounds[key];
+        const selected = key === this.selectedCharacter;
+        graphics.clear();
+        graphics.fillStyle(selected ? 0xFFF9FC : 0xFFFFFF, 0.96);
+        graphics.fillRoundedRect(-215, -242, 430, 484, 32);
+        graphics.lineStyle(selected ? 10 : 5, selected ? 0xF2C14E : accent, 1);
+        graphics.strokeRoundedRect(-215, -242, 430, 484, 32);
+        this.cardMarks[key].setText(selected ? '✓ تم الاختيار' : 'اخترني');
+        this.cardMarks[key].setBackgroundColor(selected ? '#55B879' : '#A1AAB6');
       });
+    }
+  }
+
+  class HouseScene extends Phaser.Scene {
+    constructor() { super({ key: 'HouseScene' }); }
+
+    create() {
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      this.needsManager = new NeedsManager(this.saveManager);
+      this.drawBackground();
+      this.hud = createHud(this, this.saveManager, this.needsManager);
+
+      this.add.text(WIDTH / 2, 218, 'أين نذهب الآن؟', {
+        fontFamily: FONT, fontSize: '47px', color: '#43515E', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      this.add.text(WIDTH / 2, 268, 'اختر غرفة لتهتم بطفلك وتكسب العملات والنجوم.', {
+        fontFamily: FONT, fontSize: '24px', color: '#62717B'
+      }).setOrigin(0.5);
+
+      const centersX = [330, 960, 1590];
+      const centersY = [437, 728];
+      ROOMS.forEach((room, index) => {
+        const row = Math.floor(index / 3);
+        const col = index % 3;
+        this.createRoomCard(centersX[col], centersY[row], room);
+      });
+
+      addButton(this, {
+        x: 167, y: 995, width: 240, height: 65,
+        label: '🏠  القائمة', color: 0x788DA2, border: 0x5B7085, fontSize: 23,
+        onClick: () => navigate(this, 'MenuScene')
+      });
+      addButton(this, {
+        x: 1750, y: 995, width: 255, height: 65,
+        label: '🎁  المتجر', color: 0xF2A64A, border: 0xCD7B2C, fontSize: 23,
+        onClick: () => navigate(this, 'ShopScene')
+      });
+
+      this.startNeedsTimer();
+      this.cameras.main.fadeIn(220, 250, 246, 239);
+    }
+
+    drawBackground() {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(0xFFF8E9, 1); graphics.fillRect(0, 0, WIDTH, HEIGHT);
+      graphics.fillStyle(0xE9D5B9, 1); graphics.fillRect(0, 872, WIDTH, 208);
+      graphics.fillStyle(0xD6BD9C, 1); graphics.fillRect(0, 866, WIDTH, 15);
+      graphics.fillStyle(0xFFE4C7, 0.68); graphics.fillRoundedRect(65, 295, 1790, 575, 45);
+      graphics.lineStyle(5, 0xFFFFFF, 0.76); graphics.strokeRoundedRect(65, 295, 1790, 575, 45);
+      graphics.fillStyle(0xC7E7F3, 1); graphics.fillRoundedRect(145, 330, 120, 100, 18);
+      graphics.lineStyle(8, 0xFFFFFF, 1); graphics.strokeRoundedRect(145, 330, 120, 100, 18);
+      graphics.lineBetween(205, 332, 205, 428); graphics.lineBetween(147, 380, 263, 380);
+      graphics.fillStyle(0xA9DCA4, 1); graphics.fillEllipse(1670, 865, 520, 125);
+    }
+
+    createRoomCard(x, y, room) {
+      const width = 550;
+      const height = 270;
+      const container = this.add.container(x, y).setDepth(15);
+      const background = this.add.graphics();
+      const draw = (hovered) => {
+        background.clear();
+        background.fillStyle(hovered ? 0xFFFFFF : 0xFFFEFC, 0.96);
+        background.fillRoundedRect(-width / 2, -height / 2, width, height, 30);
+        background.lineStyle(hovered ? 8 : 5, room.accent, 0.96);
+        background.strokeRoundedRect(-width / 2, -height / 2, width, height, 30);
+        background.fillStyle(room.accent, 0.13);
+        background.fillCircle(-179, -48, 68);
+      };
+      draw(false);
+      const icon = this.add.text(-179, -51, room.icon, { fontFamily: FONT, fontSize: '66px' }).setOrigin(0.5);
+      const title = this.add.text(-80, -66, room.name, {
+        fontFamily: FONT, fontSize: '34px', color: '#39495A', fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+      const hint = this.add.text(-80, -14, room.hint, {
+        fontFamily: FONT, fontSize: '21px', color: '#71808D'
+      }).setOrigin(0, 0.5);
+      const pill = this.add.text(0, 77, 'اضغط لزيارة الغرفة  ←', {
+        fontFamily: FONT, fontSize: '20px', color: '#FFFFFF', fontStyle: 'bold',
+        backgroundColor: `#${room.accent.toString(16).padStart(6, '0')}`,
+        padding: { x: 18, y: 11 }
+      }).setOrigin(0.5);
+      const zone = this.add.zone(0, 0, width, height).setInteractive({ useHandCursor: true });
+      container.add([background, icon, title, hint, pill, zone]);
+      zone.on('pointerover', () => draw(true));
+      zone.on('pointerout', () => draw(false));
+      zone.on('pointerdown', () => navigate(this, room.sceneKey));
+    }
+
+    startNeedsTimer() {
+      this.needsTimer = this.time.addEvent({
+        delay: 10000,
+        loop: true,
+        callback: () => { this.needsManager.tick(); this.hud.refresh(); }
+      });
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.needsTimer.remove());
+    }
+  }
+
+  class CareRoomScene extends Phaser.Scene {
+    constructor(room) {
+      super({ key: room.sceneKey });
+      this.room = room;
+    }
+
+    create() {
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      this.needsManager = new NeedsManager(this.saveManager);
+      this.actionLocked = false;
+      this.drawRoom();
+      this.hud = createHud(this, this.saveManager, this.needsManager);
+
+      this.add.text(WIDTH / 2, 218, `${this.room.icon}  ${this.room.name}`, {
+        fontFamily: FONT, fontSize: '46px', color: '#39495A', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      this.add.text(WIDTH / 2, 272, this.room.hint, {
+        fontFamily: FONT, fontSize: '24px', color: '#687889'
+      }).setOrigin(0.5);
+
+      this.addFurniture();
+      this.character = addCharacter(this, this.saveManager, 575, 660, 0.66, 20);
+      animateCharacter(this, this.character, this.saveManager, 8, 1500);
+      this.add.text(575, 890, 'طفلك هنا', {
+        fontFamily: FONT, fontSize: '21px', color: '#4F6070', fontStyle: 'bold',
+        backgroundColor: '#FFFFFFCC', padding: { x: 16, y: 9 }
+      }).setOrigin(0.5);
+
+      if (this.room.id === 'kitchen') this.addFoodItems();
+      this.addRoomActionButton();
+      addButton(this, {
+        x: 170, y: 995, width: 260, height: 65,
+        label: '←  العودة إلى المنزل', color: 0x788DA2, border: 0x5B7085, fontSize: 21,
+        onClick: () => navigate(this, 'HouseScene')
+      });
+      addButton(this, {
+        x: 1750, y: 995, width: 250, height: 65,
+        label: '🎁  المتجر', color: 0xF2A64A, border: 0xCD7B2C, fontSize: 23,
+        onClick: () => navigate(this, 'ShopScene')
+      });
+
+      this.startNeedsTimer();
+      this.cameras.main.fadeIn(220, 250, 246, 239);
+    }
+
+    drawRoom() {
+      const graphics = this.add.graphics();
+      graphics.fillStyle(this.room.wall, 1); graphics.fillRect(0, 0, WIDTH, HEIGHT);
+      graphics.fillStyle(0xFFFFFF, 0.28); graphics.fillRoundedRect(180, 182, 1560, 654, 50);
+      graphics.fillStyle(this.room.floor, 1); graphics.fillRect(0, 830, WIDTH, 250);
+      graphics.fillStyle(0xFFFFFF, 0.45); graphics.fillRect(0, 825, WIDTH, 14);
+
+      // A sunny window and a few simple wall decorations give every room a homey feel.
+      graphics.fillStyle(0xBDE8F5, 0.92); graphics.fillRoundedRect(270, 315, 160, 138, 18);
+      graphics.lineStyle(9, 0xFFFFFF, 0.95); graphics.strokeRoundedRect(270, 315, 160, 138, 18);
+      graphics.lineBetween(350, 319, 350, 449); graphics.lineBetween(274, 384, 426, 384);
+      graphics.fillStyle(this.room.accent, 0.35); graphics.fillCircle(1620, 386, 57);
+      graphics.fillStyle(0xFFFFFF, 0.72); graphics.fillCircle(1620, 386, 36);
+      graphics.fillStyle(this.room.accent, 0.75); graphics.fillCircle(1620, 386, 24);
+
+      graphics.fillStyle(this.room.accent, 0.12);
+      graphics.fillRoundedRect(220, 480, 1480, 345, 36);
+    }
+
+    addFurniture() {
+      const furniture = this.add.image(1325, 642, this.room.furniture)
+        .setScale(this.room.scale).setDepth(8).setInteractive({ useHandCursor: true });
+      furniture.on('pointerdown', () => this.performCare());
+      this.add.text(1325, 846, 'المس الأثاث أو الزر للبدء', {
+        fontFamily: FONT, fontSize: '19px', color: '#61717F', fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(9);
+    }
+
+    addFoodItems() {
+      const food = [
+        { key: 'food_apple', x: 1065, y: 482, scale: 0.78 },
+        { key: 'food_bottle', x: 1510, y: 475, scale: 0.72 }
+      ];
+      food.forEach((item) => {
+        const image = this.add.image(item.x, item.y, item.key).setScale(item.scale).setDepth(35)
+          .setInteractive({ useHandCursor: true });
+        image.setData('careAction', 'feed');
+        image.setData('homeX', item.x);
+        image.setData('homeY', item.y);
+        this.input.setDraggable(image);
+        image.on('pointerup', (pointer) => {
+          // A short tap feeds the baby; a drag is handled by the drop target below.
+          if (pointer.getDistance() < 12) this.performCare();
+        });
+      });
+
+      this.input.on('dragstart', (pointer, gameObject) => {
+        if (gameObject.getData('careAction')) gameObject.setDepth(50);
+      });
+      this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+        if (gameObject.getData('careAction')) {
+          gameObject.x = dragX;
+          gameObject.y = dragY;
+        }
+      });
+      this.input.on('dragend', (pointer, gameObject) => {
+        if (!gameObject.getData('careAction')) return;
+        const distance = Phaser.Math.Distance.Between(gameObject.x, gameObject.y, this.character.image.x, this.character.image.y - 80);
+        if (distance < 245) {
+          this.performCare();
+        } else {
+          showToast(this, 'اسحب الطعام بالقرب من الطفل لإطعامه 🍎');
+        }
+        this.tweens.add({
+          targets: gameObject, x: gameObject.getData('homeX'), y: gameObject.getData('homeY'),
+          duration: 260, ease: 'Back.easeOut', onComplete: () => gameObject.setDepth(35)
+        });
+      });
+    }
+
+    addRoomActionButton() {
+      const button = addButton(this, {
+        x: 1325, y: 927, width: 495, height: 82,
+        label: `${this.room.icon}  ${this.room.actionLabel}`,
+        color: this.room.accent, border: this.darken(this.room.accent), fontSize: 25,
+        onClick: () => this.performCare()
+      });
+      button.container.setDepth(30);
+    }
+
+    darken(color) {
+      const r = Math.max(0, ((color >> 16) & 255) - 45);
+      const g = Math.max(0, ((color >> 8) & 255) - 45);
+      const b = Math.max(0, (color & 255) - 45);
+      return (r << 16) | (g << 8) | b;
+    }
+
+    performCare() {
+      if (this.actionLocked) return;
+      const result = this.needsManager.perform(this.room.action);
+      if (!result.ok) {
+        showToast(this, 'هذه الحاجة مكتملة الآن 😊 جرّب غرفة أخرى.');
+        return;
+      }
+      this.actionLocked = true;
+      this.hud.refresh();
+
+      const reward = result.starReward ? '  🪙 +5  ⭐ +1 نجمة!' : '  🪙 +5 عملات';
+      showToast(this, `${this.room.success}${reward}`);
+      this.tweens.add({
+        targets: this.character.image,
+        scaleX: this.character.image.scaleX * 1.08,
+        scaleY: this.character.image.scaleY * 1.08,
+        duration: 180,
+        yoyo: true,
+        onComplete: () => {
+          if (this.character && this.character.image.active) {
+            this.character.image.setScale(0.66);
+          }
+        }
+      });
+      const heart = this.add.image(this.character.image.x + 105, this.character.image.y - 150, 'icon_heart')
+        .setScale(0.7).setDepth(60).setAlpha(0);
+      this.tweens.add({
+        targets: heart, alpha: 1, y: heart.y - 82, scale: 1.1, duration: 310,
+        yoyo: true, hold: 250, onComplete: () => heart.destroy()
+      });
+      this.time.delayedCall(700, () => { this.actionLocked = false; });
+    }
+
+    startNeedsTimer() {
+      this.needsTimer = this.time.addEvent({
+        delay: 10000,
+        loop: true,
+        callback: () => { this.needsManager.tick(); this.hud.refresh(); }
+      });
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.needsTimer.remove());
+    }
+  }
+
+  class ShopScene extends Phaser.Scene {
+    constructor() { super({ key: 'ShopScene' }); }
+
+    create() {
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      this.needsManager = new NeedsManager(this.saveManager);
+      const background = this.add.graphics();
+      background.fillStyle(0xF4EDFF, 1); background.fillRect(0, 0, WIDTH, HEIGHT);
+      background.fillStyle(0xFFE7EF, 0.8); background.fillEllipse(950, 1050, 2200, 450);
+      this.hud = createHud(this, this.saveManager, this.needsManager);
+
+      this.add.text(WIDTH / 2, 218, 'متجر الإكسسوارات', {
+        fontFamily: FONT, fontSize: '48px', color: '#74518B', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      this.add.text(WIDTH / 2, 273, 'اشترِ زينة لطيفة لطفلك بالعملات التي تكسبها من العناية به.', {
+        fontFamily: FONT, fontSize: '23px', color: '#746E80'
+      }).setOrigin(0.5);
+      this.itemCards = [];
+      this.itemButtons = [];
+      this.renderItems();
+      addButton(this, {
+        x: 175, y: 995, width: 260, height: 65,
+        label: '←  العودة', color: 0x788DA2, border: 0x5B7085, fontSize: 23,
+        onClick: () => navigate(this, 'MenuScene')
+      });
+      this.cameras.main.fadeIn(220, 244, 237, 255);
+    }
+
+    renderItems() {
+      if (this.itemCards) this.itemCards.forEach((card) => card.destroy(true));
+      if (this.itemButtons) this.itemButtons.forEach((button) => button.destroy(true));
+      this.itemCards = [];
+      this.itemButtons = [];
+      const centers = [365, 960, 1555];
+      SHOP_ITEMS.forEach((item, index) => {
+        const x = centers[index];
+        const y = 610;
+        const container = this.add.container(x, y).setDepth(20);
+        const bg = this.add.graphics();
+        bg.fillStyle(0xFFFFFF, 0.94); bg.fillRoundedRect(-245, -222, 490, 444, 32);
+        bg.lineStyle(5, [0xF2A0BD, 0xE4BD51, 0x78B6DD][index], 0.9);
+        bg.strokeRoundedRect(-245, -222, 490, 444, 32);
+        bg.fillStyle(0xF7F4FA, 1); bg.fillCircle(0, -112, 78);
+        const icon = this.add.text(0, -112, item.icon, { fontFamily: FONT, fontSize: '77px' }).setOrigin(0.5);
+        const title = this.add.text(0, 10, item.name, {
+          fontFamily: FONT, fontSize: '31px', color: '#485466', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        const description = this.add.text(0, 58, item.description, {
+          fontFamily: FONT, fontSize: '19px', color: '#73808C', align: 'center', wordWrap: { width: 390 }
+        }).setOrigin(0.5);
+        container.add([bg, icon, title, description]);
+        this.itemCards.push(container);
+
+        const owned = this.saveManager.data.accessories.includes(item.id);
+        const equipped = this.saveManager.data.equippedAccessory === item.id;
+        const button = addButton(this, {
+          x, y: 780, width: 340, height: 68,
+          label: equipped ? '✓ مُرتدى الآن' : owned ? 'استخدم هذه الزينة' : `شراء  •  ${item.price} 🪙`,
+          color: equipped ? 0x7CBF91 : owned ? 0x729CC4 : 0xE6A14F,
+          border: equipped ? 0x56936B : owned ? 0x547BA2 : 0xC77D36,
+          fontSize: 23,
+          onClick: () => this.selectItem(item)
+        });
+        this.itemButtons.push(button.container);
+      });
+    }
+
+    selectItem(item) {
+      const owned = this.saveManager.data.accessories.includes(item.id);
+      if (!owned) {
+        if (this.saveManager.data.coins < item.price) {
+          showToast(this, 'عملاتك لا تكفي بعد. اعتنِ بالطفل لتكسب المزيد!');
+          return;
+        }
+        this.saveManager.data.coins -= item.price;
+        this.saveManager.data.accessories.push(item.id);
+        this.saveManager.data.equippedAccessory = item.id;
+        this.saveManager.save();
+        showToast(this, `أحسنت! حصلت على ${item.name} 🎉`);
+      } else {
+        this.saveManager.data.equippedAccessory = this.saveManager.data.equippedAccessory === item.id ? '' : item.id;
+        this.saveManager.save();
+        showToast(this, this.saveManager.data.equippedAccessory ? `تم اختيار ${item.name} ✨` : 'تمت إزالة الزينة.');
+      }
+      this.hud.refresh();
+      this.renderItems();
     }
   }
 
   class SettingsScene extends Phaser.Scene {
-    constructor() { super({ key: CONFIG.SCENES.SETTINGS }); this.save = new SaveManager(); }
+    constructor() { super({ key: 'SettingsScene' }); }
+
     create() {
-      this.save.init();
-      const W = CONFIG.WIDTH, H = CONFIG.HEIGHT;
-      const cx = W / 2;
-      
-      this.add.graphics().fillStyle(0xE8EAF6, 1).fillRect(0, 0, W, H);
-      
-      this.add.text(cx, 60, '️ الإعدادات', {
-        fontSize: '42px', fontFamily: 'Arial', color: '#333', fontStyle: 'bold'
+      this.isNavigating = false;
+      this.saveManager = new SaveManager();
+      this.saveManager.init();
+      const background = this.add.graphics();
+      background.fillStyle(0xEAF2FA, 1); background.fillRect(0, 0, WIDTH, HEIGHT);
+      background.fillStyle(0xE7DDF5, 0.72); background.fillEllipse(990, 1080, 2100, 420);
+
+      this.add.text(WIDTH / 2, 195, 'الإعدادات والمساعدة', {
+        fontFamily: FONT, fontSize: '48px', color: '#405568', fontStyle: 'bold'
       }).setOrigin(0.5);
-      
+
       const panel = this.add.graphics();
-      panel.fillStyle(0xFFFFFF, 0.9); panel.fillRoundedRect(cx - 350, 120, 700, H - 240, 20);
-      panel.lineStyle(3, 0x9FA8DA, 1); panel.strokeRoundedRect(cx - 350, 120, 700, H - 240, 20);
-      
-      // Reset button
-      const resetBtn = this.add.container(cx, H / 2);
-      const bg = this.add.graphics();
-      bg.fillStyle(0xF44336, 1); bg.fillRoundedRect(-120, -25, 240, 50, 15);
-      const txt = this.add.text(0, 0, '🗑️ حذف جميع البيانات', { fontSize: '22px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      resetBtn.add([bg, txt]);
-      const zone = this.add.zone(0, 0, 240, 50).setInteractive({ useHandCursor: true });
-      resetBtn.add(zone);
-      zone.on('pointerdown', () => {
-        if (confirm('هل تريد حذف جميع البيانات؟')) {
-          this.save.data = this.save.getDefault();
-          this.save.save();
-          this.showToast('تم حذف البيانات! ✅');
+      panel.fillStyle(0xFFFFFF, 0.92); panel.fillRoundedRect(475, 280, 970, 540, 32);
+      panel.lineStyle(4, 0xCBD9E5, 1); panel.strokeRoundedRect(475, 280, 970, 540, 32);
+      this.add.text(WIDTH / 2, 350, 'كيف تلعب؟', {
+        fontFamily: FONT, fontSize: '31px', color: '#3F596E', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      this.add.text(WIDTH / 2, 417,
+        'زر المنزل لزيارة الغرف، وكل غرفة فيها نشاط يساعد طفلك.\n' +
+        'كلما اعتنيت به، كسبت عملات؛ واحصل على نجمة بعد كل خمس رعايات.\n' +
+        'تُحفظ العملات واختيارك تلقائياً على هذا الجهاز.', {
+          fontFamily: FONT, fontSize: '22px', color: '#657889', align: 'center',
+          lineSpacing: 12, wordWrap: { width: 780 }
+        }).setOrigin(0.5);
+
+      this.motionButton = addButton(this, {
+        x: WIDTH / 2, y: 575, width: 500, height: 74,
+        label: this.motionLabelText(), color: 0x7B91A4, border: 0x5B7085, fontSize: 23,
+        onClick: () => {
+          this.saveManager.data.settings.reduceMotion = !this.saveManager.data.settings.reduceMotion;
+          this.saveManager.save();
+          this.motionButton.text.setText(this.motionLabelText());
+          showToast(this, 'تم حفظ إعداد الحركة. سيُطبّق عند فتح الشاشة التالية.');
         }
       });
-      
-      // Back button
-      const backBtn = this.add.container(W - 120, H - 50);
-      const bg2 = this.add.graphics();
-      bg2.fillStyle(0xFF7043, 1); bg2.fillRoundedRect(-70, -28, 140, 56, 15);
-      const txt2 = this.add.text(0, 0, '→ رجوع', { fontSize: '22px', fontFamily: 'Arial', color: '#FFF', fontStyle: 'bold' }).setOrigin(0.5);
-      backBtn.add([bg2, txt2]);
-      const zone2 = this.add.zone(0, 0, 140, 56).setInteractive({ useHandCursor: true });
-      backBtn.add(zone2);
-      zone2.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(CONFIG.SCENES.MENU));
+
+      addButton(this, {
+        x: WIDTH / 2, y: 690, width: 420, height: 72,
+        label: '🗑️  إعادة ضبط التقدّم', color: 0xE66B6B, border: 0xBD4F4F, fontSize: 23,
+        onClick: () => {
+          const confirmed = window.confirm('هل تريد إعادة ضبط العملات والنجوم واختيار الشخصية؟');
+          if (!confirmed) return;
+          this.saveManager.reset();
+          showToast(this, 'تمت إعادة ضبط التقدّم.');
+        }
       });
-      
-      this.add.text(cx, H - 150, 'Baby Care World v1.0.0', { fontSize: '20px', fontFamily: 'Arial', color: '#666' }).setOrigin(0.5);
+
+      addButton(this, {
+        x: 175, y: 980, width: 260, height: 68,
+        label: '←  القائمة الرئيسية', color: 0x788DA2, border: 0x5B7085, fontSize: 22,
+        onClick: () => navigate(this, 'MenuScene')
+      });
+      this.cameras.main.fadeIn(220, 234, 243, 250);
     }
-    showToast(msg) {
-      const toast = this.add.text(CONFIG.WIDTH / 2, CONFIG.HEIGHT - 100, msg, {
-        fontSize: '28px', fontFamily: 'Arial', color: '#FFF', backgroundColor: '#000000CC', padding: { x: 20, y: 12 }
-      }).setOrigin(0.5).setAlpha(0).setDepth(1000);
-      this.tweens.add({
-        targets: toast, alpha: 1, duration: 300,
-        onComplete: () => this.tweens.add({ targets: toast, alpha: 0, delay: 1500, duration: 300, onComplete: () => toast.destroy() })
-      });
+
+    motionLabelText() {
+      const enabled = this.saveManager.data.settings.reduceMotion;
+      return `تقليل حركة الرسوم: ${enabled ? 'مفعّل ✓' : 'متوقف'}`;
     }
   }
 
-  // ============ GAME CONFIG ============
   const gameConfig = {
     type: Phaser.CANVAS,
-    width: CONFIG.WIDTH,
-    height: CONFIG.HEIGHT,
+    width: WIDTH,
+    height: HEIGHT,
     parent: 'game-container',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#A9DFF7',
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: WIDTH,
+      height: HEIGHT
     },
-    input: {
-      activePointers: 3,
-      touch: { capture: true }
-    },
+    input: { activePointers: 2, touch: { capture: true } },
+    render: { antialias: true, roundPixels: false },
     scene: [
       BootScene,
-      PreloadScene,
       MenuScene,
       CharacterSelectScene,
       HouseScene,
-      LivingRoomScene,
-      KitchenScene,
-      BathroomScene,
-      BedroomScene,
-      PlayroomScene,
-      GardenScene,
+      ...ROOMS.map((room) => new CareRoomScene(room)),
+      ShopScene,
       SettingsScene
-    ],
-    physics: {
-      default: 'arcade',
-      arcade: { gravity: { y: 980 }, debug: false }
-    }
+    ]
   };
 
-  // Start game
   try {
-    const game = new Phaser.Game(gameConfig);
-    
-    game.events.once('ready', () => {
-      const preLoader = document.getElementById('pre-loader');
-      if (preLoader) {
-        preLoader.classList.add('hidden');
-        setTimeout(() => preLoader.remove(), 500);
-      }
-    });
-  } catch (e) {
-    console.error('Game failed to start:', e);
-    const preLoader = document.getElementById('pre-loader');
-    if (preLoader) {
-      preLoader.innerHTML = '<h1 style="color:white;font-size:2rem;">⚠️ خطأ في تحميل اللعبة</h1>';
+    new Phaser.Game(gameConfig);
+  } catch (error) {
+    console.error('Baby Care World failed to start:', error);
+    const loader = document.getElementById('pre-loader');
+    if (loader) {
+      loader.classList.remove('hidden');
+      loader.innerHTML = '<div class="load-error"><h1>حدث خطأ عند تشغيل اللعبة</h1><p>أعد تحميل الصفحة، أو جرّب متصفحاً أحدث.</p></div>';
     }
   }
 })();

@@ -1,90 +1,43 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Baby Care World - Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phaser Runtime Smoke Test</title>
   <style>
-    * { margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
-    #game-container { width: 100%; height: 100%; }
+    html, body { margin: 0; min-height: 100%; background: #101827; color: white; font-family: Arial, sans-serif; }
+    body { display: grid; place-items: center; }
+    #status { position: fixed; top: 12px; left: 12px; z-index: 2; padding: 10px 14px; border-radius: 8px; background: #26354d; }
+    #game { width: 100vw; height: 100vh; }
   </style>
 </head>
 <body>
-  <div id="game-container"></div>
+  <div id="status" role="status">Loading Phaser…</div>
+  <div id="game"></div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script>
-    const config = {
-      type: Phaser.CANVAS,
-      width: 1920,
-      height: 1080,
-      parent: 'game-container',
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
-      scene: {
-        create() {
-          this.cameras.main.setBackgroundColor('#667eea');
-          
-          this.add.text(960, 400, 'Baby Care World', {
-            fontSize: '72px',
-            fontFamily: 'Arial',
-            color: '#ffffff',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 6
-          }).setOrigin(0.5);
-          
-          this.add.text(960, 500, 'عالم رعاية الأطفال', {
-            fontSize: '36px',
-            fontFamily: 'Arial',
-            color: '#FFD93D',
-            fontStyle: 'bold'
-          }).setOrigin(0.5);
-
-          this.add.text(960, 620, 'Tap to play!', {
-            fontSize: '32px',
-            fontFamily: 'Arial',
-            color: '#ffffff'
-          }).setOrigin(0.5);
-
-          // Test graphics
-          const gfx = this.make.graphics();
-          gfx.fillStyle(0xff0000, 1);
-          gfx.fillCircle(200, 200, 50);
-          gfx.fillStyle(0x00ff00, 1);
-          gfx.fillCircle(400, 200, 50);
-          gfx.fillStyle(0x0000ff, 1);
-          gfx.fillCircle(600, 200, 50);
-
-          // Baby placeholder
-          const baby = this.add.graphics();
-          baby.fillStyle(0xFFE0BD, 1);
-          baby.fillCircle(960, 800, 60);
-          baby.fillStyle(0x4FC3F7, 1);
-          baby.fillRoundedRect(900, 860, 120, 100, 15);
-          baby.fillStyle(0xffffff, 1);
-          baby.fillCircle(940, 790, 12);
-          baby.fillCircle(980, 790, 12);
-          baby.fillStyle(0x000000, 1);
-          baby.fillCircle(943, 793, 6);
-          baby.fillCircle(983, 793, 6);
-
-          // Bounce animation
-          this.tweens.add({
-            targets: baby,
-            y: 750,
-            duration: 1000,
-            repeat: -1,
-            yoyo: true,
-            ease: 'Sine.easeInOut'
-          });
+    const status = document.getElementById('status');
+    if (typeof Phaser === 'undefined') {
+      status.textContent = 'Phaser failed to load.';
+    } else {
+      status.textContent = `Phaser ${Phaser.VERSION} loaded`;
+      new Phaser.Game({
+        type: Phaser.CANVAS,
+        width: 800,
+        height: 450,
+        parent: 'game',
+        backgroundColor: '#5267bb',
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        scene: {
+          create() {
+            this.add.text(400, 200, 'Baby Care World is ready!', {
+              fontFamily: 'Arial', fontSize: '38px', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.add.circle(400, 285, 22, 0xffd76d);
+          }
         }
-      }
-    };
-
-    const game = new Phaser.Game(config);
+      });
+    }
   </script>
 </body>
 </html>

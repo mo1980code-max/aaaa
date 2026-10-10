@@ -2,31 +2,46 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#87CEEB">
-  <title>Baby Care World</title>
+  <meta name="theme-color" content="#a9dff7">
+  <meta name="description" content="اعتنِ بطفلك الصغير، زر غرف البيت، واجمع العملات والنجوم في Baby Care World.">
+  <title>Baby Care World — عالم رعاية الأطفال</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; font-family: Arial, sans-serif; touch-action: none; }
-    #game-container { width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
-    #pre-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #a9dff7; font-family: Arial, sans-serif; touch-action: none; }
+    body { position: fixed; inset: 0; }
+    #game-container { width: 100%; height: 100%; position: fixed; inset: 0; }
+    #pre-loader {
+      position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px; color: #fff;
+      background: linear-gradient(145deg, #85c9e9, #a7d7bb 56%, #f4d8a6);
+      transition: opacity .45s ease;
+    }
     #pre-loader.hidden { opacity: 0; pointer-events: none; }
-    #pre-loader h1 { color: white; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); margin-bottom: 20px; }
-    .loader-bar { width: 200px; height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; }
-    .loader-bar-fill { width: 0%; height: 100%; background: white; border-radius: 4px; animation: ld 1.5s infinite; }
-    @keyframes ld { 0%{width:0} 50%{width:100%} 100%{width:0} }
+    #pre-loader h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 3rem); text-shadow: 0 3px 8px #385c6a70; }
+    #pre-loader p { margin: 0; font-size: 1.1rem; color: #fffdf0; }
+    .loader-bar { width: min(240px, 55vw); height: 9px; border-radius: 99px; background: #ffffff72; overflow: hidden; }
+    .loader-bar-fill { width: 42%; height: 100%; border-radius: inherit; background: #fff; animation: loading 1.15s ease-in-out infinite alternate; }
+    .load-error { max-width: 90%; text-align: center; line-height: 1.7; }
+    .load-error p { color: #fff; }
+    @keyframes loading { from { transform: translateX(0); } to { transform: translateX(140%); } }
+    canvas { display: block; outline: none; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
 <body>
-  <div id="pre-loader">
+  <div id="pre-loader" role="status" aria-live="polite">
     <h1>🍼 Baby Care World</h1>
-    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+    <p>جارٍ تجهيز عالمك الصغير...</p>
+    <div class="loader-bar" aria-hidden="true"><div class="loader-bar-fill"></div></div>
   </div>
-  <div id="game-container"></div>
-  
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-  <script src="/aaaa/game.js"></script>
+  <div id="game-container" aria-label="لعبة عالم رعاية الأطفال"></div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script defer src="./game.js"></script>
 </body>
 </html>
