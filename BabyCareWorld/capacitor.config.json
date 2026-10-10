@@ -1,0 +1,25 @@
+{
+  "appId": "com.babycare.world",
+  "appName": "Baby Care World",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "overrideUserAgent": "Baby Care World Android",
+    "backgroundColor": "#87CEEB"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#667eea",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#87CEEB",
+      "overlaysWebView": true
+    }
+  }
+}
