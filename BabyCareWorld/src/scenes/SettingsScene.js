@@ -20,7 +20,7 @@ export default class SettingsScene extends Phaser.Scene {
 
     // Background
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0xE8EAF6, 0xE8EAF6, 0xC5CAE9, 0xC5CAE9, 1);
+    bg.fillStyle(0xE8EAF6, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
 
     // Title

@@ -19,7 +19,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
 
     // Background
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0xFCE4EC, 0xFCE4EC, 0xF8BBD0, 0xF8BBD0, 1);
+    bg.fillStyle(0xFCE4EC, 1);
     bg.fillRect(0, 0, WIDTH, HEIGHT);
 
     // Decorative elements
