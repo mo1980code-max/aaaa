@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <!-- منع التكبير/التصغير والتمرير على الهواتف -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#79b9dc">
+  <title>غرفة الاستحمام — Baby Care World</title>
+  <style>
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #0e2a3a;
+      touch-action: none;             /* ⬅️ منع إيماءات التمرير/التكبير للمتصفح */
+      overscroll-behavior: none;      /* ⬅️ منع سحب-للتحديث على أندرويد */
+      position: fixed; inset: 0;
+    }
+    #game-container { width: 100%; height: 100%; position: fixed; inset: 0; }
+    #game-container canvas { display: block; }
+
+    /* Overlay "أدر هاتفك" في الوضع الطولي */
+    #rotate-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: linear-gradient(135deg, #4a90b8, #79b9dc);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; font-family: Arial, sans-serif; text-align: center; gap: 18px;
+    }
+    #rotate-overlay .phone { font-size: 72px; animation: spin 1.6s ease-in-out infinite; }
+    #rotate-overlay p { font-size: 1.3rem; padding: 0 24px; }
+    @keyframes spin { 0%,20% { transform: rotate(0); } 60%,100% { transform: rotate(90deg); } }
+    @media (orientation: portrait) { #rotate-overlay { display: flex; } }
+  </style>
+</head>
+<body>
+  <div id="rotate-overlay" role="status">
+    <div class="phone">📱</div>
+    <p>أدر هاتفك إلى الوضع العرضي لبدء الاستحمام 🛁</p>
+  </div>
+  <main id="game-container" aria-label="غرفة الاستحمام"></main>
+
+  <!-- Phaser محلي (vendor) لعمل اللعبة دون الحاجة لـ CDN -->
+  <script src="./vendor/phaser.min.js"></script>
+
+  <!-- أنظمة غرفة الاستحمام — الترتيب مهم -->
+  <script src="./src/config/MobileGameConfig.js"></script>
+  <script src="./src/dev/PlaceholderAssets.js"></script>
+  <script src="./src/animation/BabyAnimationController.js"></script>
+  <script src="./src/systems/BathActivityManager.js"></script>
+  <script src="./src/interactions/SoapInteraction.js"></script>
+  <script src="./src/interactions/WaterInteraction.js"></script>
+  <script src="./src/interactions/TowelInteraction.js"></script>
+  <script src="./src/scenes/BathScene.js"></script>
+
+  <script>
+    // حزام أمان إضافي فوق touch.capture الخاص بـ Phaser:
+    // منع أي تمرير/تكبير افتراضي يصل للمستند (iOS Safari وبعض متصفحات أندرويد)
+    ['touchmove', 'gesturestart', 'dblclick'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+    });
+
+    window.addEventListener('load', function () {
+      // إعداد الهواتف الكامل: Scale.FIT + لمس + fps 30-60 + جودة حسب الجهاز
+      var config = buildBathGameConfig([BathScene]);
+      var game = new Phaser.Game(config);
+
+      // محاولة قفل الاتجاه العرضي عند أول لمسة (يتطلب Fullscreen على أندرويد)
+      document.body.addEventListener('pointerdown', function lockOnce() {
+        document.body.removeEventListener('pointerdown', lockOnce);
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function () { /* غير مدعوم => Overlay يكفي */ });
+        }
+      });
+
+      // إيقاف/استئناف تلقائي عند إخفاء التبويب (توفير بطارية الهاتف)
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) { game.loop.sleep(); } else { game.loop.wake(); }
+      });
+    });
+  </script>
+</body>
+</html>
