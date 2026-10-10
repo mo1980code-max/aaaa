@@ -242,6 +242,23 @@
     return scene.textures.exists(safeKey) ? safeKey : `fallback_${safeKey}`;
   }
 
+  // صور الحمام الخارجية (PNG) — تُحمَّل من assets/images/ في PreloadScene.
+  // لاستبدال أي رسم لاحقاً: ضع الملف بنفس الاسم فوق الصورة البديلة، دون تغيير الكود.
+  const BATH_IMAGES = Object.freeze({
+    bathroom_bg: 'bathroom_bg.png',
+    bathtub_back: 'bathtub_back.png',
+    bathtub_front: 'bathtub_front.png',
+    shower: 'shower.png',
+    soap: 'soap.png',
+    towel: 'towel.png'
+  });
+
+  // الصورة الخارجية إن وُجدت، وإلا الرسم الاحتياطي المولّد في BootScene (أو null)
+  function bathTexture(scene, key, fallback = null) {
+    if (scene.textures.exists(key)) return key;
+    return fallback && scene.textures.exists(fallback) ? fallback : null;
+  }
+
   function createBaby(scene, x, y, key, width = 180, height = 240) {
     return scene.add.image(x, y, characterTexture(scene, key))
       .setDisplaySize(width, height)
@@ -627,6 +644,8 @@
       this.load.on('loaderror', file => console.warn(`Could not load ${file.src}; using the built-in character fallback.`));
       this.load.image('baby_boy', './public/assets/characters/baby-boy.svg');
       this.load.image('baby_girl', './public/assets/characters/baby-girl.svg');
+      // صور الحمام الخارجية (PNG) من assets/images/
+      Object.entries(BATH_IMAGES).forEach(([key, file]) => this.load.image(key, `./assets/images/${file}`));
       this.load.once('complete', () => progressText.setText('أهلاً بك!'));
     }
 
@@ -1027,8 +1046,26 @@
       this.babyMask = maskShape.createGeometryMask();
 
       // الحوض الفارغ (بدون ماء أو فقاعات)
-      this.add.image(1320, 650, 'furniture_bathtub').setDisplaySize(590, 378).setDepth(7);
-      this.water = this.add.graphics().setDepth(8.5);
+      // ترتيب الطبقات: خلفية 0.5 < الجزء الخلفي للحوض 7 < الماء 7.5 < الطفل 8 (مقصوص بالحافة)
+      //               < الواجهة الأمامية للحوض 9 (تغطي أسفل الطفل والماء)
+      const bgKey = bathTexture(this, 'bathroom_bg');
+      if (bgKey) {
+        // فوق رسم الخلفية الافتراضي (عمق 0) وتحت كل العناصر الأخرى
+        this.add.image(CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2, bgKey)
+          .setDisplaySize(CONFIG.WIDTH, CONFIG.HEIGHT).setDepth(0.5);
+      }
+      this.add.image(1320, 650, bathTexture(this, 'bathtub_back', 'furniture_bathtub'))
+        .setDisplaySize(590, 378).setDepth(7);
+      this.water = this.add.graphics().setDepth(7.5);
+      const tubFrontKey = bathTexture(this, 'bathtub_front');
+      if (tubFrontKey) {
+        this.add.image(1320, 650, tubFrontKey).setDisplaySize(590, 378).setDepth(9);
+      }
+      const towelKey = bathTexture(this, 'towel');
+      if (towelKey) {
+        // منشفة معلّقة على الحائط (زينة فقط — لا تفاعل لها في هذا الحمام)
+        this.add.image(1775, 340, towelKey).setDisplaySize(150, 170).setDepth(5);
+      }
       this.stream = this.add.graphics().setDepth(8.6);
       this.dropEllipse = new Phaser.Geom.Ellipse(L.dropZone.x, L.dropZone.y, L.dropZone.width, L.dropZone.height);
 
@@ -1043,10 +1080,10 @@
       this.input.setDraggable(this.baby);
 
       // الصابون ورأس الدش: أدوات سحب (تُفعَّل حسب الخطوة)
-      this.soap = this.add.image(L.soapHome.x, L.soapHome.y, 'item_soap')
+      this.soap = this.add.image(L.soapHome.x, L.soapHome.y, bathTexture(this, 'soap', 'item_soap'))
         .setDisplaySize(144, 106).setDepth(12)
         .setInteractive({ useHandCursor: true, draggable: true });
-      this.shower = this.add.image(L.showerHome.x, L.showerHome.y, 'item_shower')
+      this.shower = this.add.image(L.showerHome.x, L.showerHome.y, bathTexture(this, 'shower', 'item_shower'))
         .setDisplaySize(120, 150).setDepth(12)
         .setInteractive({ useHandCursor: true, draggable: true });
       this.add.text(L.soapHome.x, 625, 'صابون الفقاعات', {
