@@ -1,0 +1,18 @@
+{
+  "scene": "BathScene",
+  "baseResolution": { "width": 1920, "height": 1080 },
+  "basePath": "public/assets/bathroom/",
+  "format": { "primary": "png", "optional": "webp", "alpha": true },
+  "assets": [
+    { "key": "bath_bg",         "file": "bath_bg.png",         "size": { "w": 1920, "h": 1080 }, "alpha": false, "layer": "background",   "depth": 0  },
+    { "key": "tub_back",        "file": "tub_back.png",        "size": { "w": 1200, "h": 420 },  "alpha": true,  "layer": "tub_back",     "depth": 10 },
+    { "key": "water_surface",   "file": "water_surface.png",   "size": { "w": 1100, "h": 220 },  "alpha": true,  "layer": "water",        "depth": 20 },
+    { "key": "tub_front",       "file": "tub_front.png",       "size": { "w": 1240, "h": 380 },  "alpha": true,  "layer": "tub_front",    "depth": 40 },
+    { "key": "faucet",          "file": "faucet.png",          "size": { "w": 220,  "h": 260 },  "alpha": true,  "layer": "props_ui",     "depth": 50 },
+    { "key": "shower_head",     "file": "shower_head.png",     "size": { "w": 260,  "h": 320 },  "alpha": true,  "layer": "props_ui",     "depth": 50 },
+    { "key": "soap_bar",        "file": "soap_bar.png",        "size": { "w": 160,  "h": 120 },  "alpha": true,  "layer": "props_ui",     "depth": 55 },
+    { "key": "towel",           "file": "towel.png",           "size": { "w": 300,  "h": 260 },  "alpha": true,  "layer": "props_ui",     "depth": 50 },
+    { "key": "bubble_particle", "file": "bubble_particle.png", "size": { "w": 64,   "h": 64 },   "alpha": true,  "layer": "particles",    "depth": 60 }
+  ],
+  "babyLayer": { "depth": 30, "note": "Baby sprite sits between water_surface (20) and tub_front (40), clipped by a GeometryMask at the tub interior bottom." }
+}
