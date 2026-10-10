@@ -2,20 +2,42 @@
 """
 توليد صور PNG بديلة (Placeholders) لرسومات الحمّام في Baby Care World.
 
-تُكتب الصور إلى assets/images/ بنفس أسماء الملفات التي تحمّلها game.js،
-ليتم استبدالها لاحقاً بالرسومات النهائية دون تغيير أي كود.
+تُكتب الصور إلى assets/images/ بنفس أسماء الملفات التي تحمّلها game.js
+(BATH_IMAGES)، ليتم استبدالها لاحقاً بالرسومات النهائية دون تغيير أي كود.
 
 الأحجام = 2× حجم العرض الفعلي في اللعبة (setDisplaySize) لتبقى الصور واضحة
 عند التكبير. لا تُغيّر أحجام العرض في الكود عند استبدال الصور.
+
+الملفات:
+    bathroom_bg.png     خلفية الحمام كاملة
+    bathtub_back.png    الجزء الخلفي من الحوض (يُعرض فوق الطفل من الأسفل بالمسك)
+    bathtub_front.png   الواجهة الأمامية للحوض (تغطي أسفل الطفل والماء)
+    baby_standing.png   الطفل واقفاً خارج الحوض (قبل السحب)
+    baby_character.png  الطفل جالساً داخل الحوض (بعد الإفلات)
+    shower.png          رأس الدش
+    soap.png            الصابون والرغوة
+    towel.png           المنشفة (زينة فقط)
+    bubble_particle.png جزيء فقاعة الصابون (يُعرض بأحجام مختلفة)
+    water_surface.png   شريحة سطح الماء (تُمدّ أفقياً بعرض الحوض)
 
 التشغيل (يحتاج Pillow):
     python3 tools/make_bath_placeholders.py
 """
 
 from pathlib import Path
+from math import sin, pi
 from PIL import Image, ImageDraw
 
 OUT = Path(__file__).resolve().parent.parent / 'assets' / 'images'
+
+SKIN = (255, 224, 189, 255)
+HAIR = (93, 64, 55, 255)
+SHIRT = (79, 195, 247, 255)
+SHOE = (2, 119, 189, 255)
+DARK = (62, 39, 35, 255)
+WHITE = (255, 255, 255, 255)
+CHEEK = (255, 171, 145, 190)
+MOUTH = (233, 30, 99, 255)
 
 
 class Space:
@@ -36,6 +58,9 @@ class Space:
     def _box(self, x, y, w, h):
         return [x * self.sx, y * self.sy, (x + w) * self.sx, (y + h) * self.sy]
 
+    def _pt(self, p):
+        return (p[0] * self.sx, p[1] * self.sy)
+
     def rr(self, x, y, w, h, r, fill):
         self.d.rounded_rectangle(self._box(x, y, w, h), radius=r * self.k, fill=fill)
 
@@ -44,6 +69,15 @@ class Space:
 
     def circ(self, cx, cy, r, fill):
         self.ell(cx - r, cy - r, 2 * r, 2 * r, fill)
+
+    def arc(self, x, y, w, h, start, end, fill, width):
+        self.d.arc(self._box(x, y, w, h), start, end, fill=fill, width=max(1, int(width * self.k)))
+
+    def poly(self, points, fill):
+        self.d.polygon([self._pt(p) for p in points], fill=fill)
+
+    def line(self, points, fill, width):
+        self.d.line([self._pt(p) for p in points], fill=fill, width=max(1, int(width * self.k)), joint='curve')
 
     def clear_below(self, design_y):
         """يمسح كل ما تحت خط التصميم (للفصل بين الجزء الخلفي والأمامي للحوض)."""
@@ -110,6 +144,60 @@ def make_tub_parts():
     front.save('bathtub_front.png')
 
 
+def draw_baby(sp, seated):
+    """الطفل بتصميم 190×254 (حجم العرض في اللعبة). الجلوس: بلا ساقين، والجزء السفلي يُقصّ بحافة الحوض."""
+    sp.ell(38, 20, 114, 80, HAIR)                                    # الشعر خلف الوجه
+    if seated:
+        sp.rr(50, 112, 90, 130, 30, SHIRT)                           # الجذع داخل الماء
+    else:
+        sp.rr(52, 112, 86, 92, 26, SHIRT)                            # القميص
+        sp.rr(60, 190, 30, 44, 14, SKIN)                             # الساقان
+        sp.rr(100, 190, 30, 44, 14, SKIN)
+        sp.rr(54, 224, 42, 24, 12, SHOE)                             # الحذاءان
+        sp.rr(96, 224, 42, 24, 12, SHOE)
+    sp.rr(26, 124, 28, 74, 14, SKIN)                                 # الذراعان
+    sp.rr(136, 124, 28, 74, 14, SKIN)
+    sp.circ(38, 100, 10, SKIN)                                       # الأذنان
+    sp.circ(152, 100, 10, SKIN)
+    sp.circ(95, 98, 58, SKIN)                                        # الوجه
+    sp.circ(95, 40, 12, HAIR)                                        # خصلة شعر
+    sp.circ(76, 100, 9, DARK)                                        # العينان
+    sp.circ(114, 100, 9, DARK)
+    sp.circ(79, 96, 3, WHITE)
+    sp.circ(117, 96, 3, WHITE)
+    sp.ell(48, 112, 22, 14, CHEEK)                                   # الخدّان
+    sp.ell(120, 112, 22, 14, CHEEK)
+    sp.arc(80, 110, 30, 20, 20, 160, MOUTH, 3)                       # الابتسامة
+
+
+def make_baby():
+    sp = Space(190, 254, 380, 508)
+    draw_baby(sp, seated=False)
+    sp.save('baby_standing.png')
+
+    sp = Space(190, 254, 380, 508)
+    draw_baby(sp, seated=True)
+    sp.save('baby_character.png')
+
+
+def make_bubble():
+    sp = Space(128, 128, 128, 128)
+    sp.circ(64, 64, 60, (200, 240, 255, 70))                         # جسم الفقاعة الشفاف
+    sp.arc(6, 6, 116, 116, 0, 360, (255, 255, 255, 200), 5)          # الحافة اللامعة
+    sp.ell(26, 22, 28, 16, (255, 255, 255, 230))                     # الانعكاس
+    sp.circ(90, 86, 6, (255, 255, 255, 160))
+    sp.save('bubble_particle.png')
+
+
+def make_water_surface():
+    # 520×24 بالتصميم = 2× عرض الحوض الداخلي وارتفاع الشريحة في اللعبة
+    sp = Space(520, 24, 1040, 48)
+    wave = [(x, 9 + 3.5 * sin(x / 520 * 2 * pi * 3)) for x in range(0, 521, 8)]
+    sp.poly(wave + [(520, 24), (0, 24)], (178, 235, 247, 150))       # جسم الشريحة
+    sp.line(wave, (255, 255, 255, 230), 3)                           # خط الموجة اللامع
+    sp.save('water_surface.png')
+
+
 def make_shower():
     sp = Space(120, 150, 240, 300)
     sp.rr(52, 0, 16, 62, 6, (144, 164, 174, 255))
@@ -143,6 +231,9 @@ if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     make_background()
     make_tub_parts()
+    make_baby()
+    make_bubble()
+    make_water_surface()
     make_shower()
     make_soap()
     make_towel()
