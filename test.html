@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Phaser Test</title>
+  <style>
+    body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; color: white; }
+    #status { font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <div id="status">Loading Phaser...</div>
+  <script type="module">
+    try {
+      const Phaser = (await import('/aaaa/assets/phaser-0RJB29YE.js')).P;
+      document.getElementById('status').textContent = 'Phaser loaded: ' + Phaser.VERSION;
+      
+      const config = {
+        type: Phaser.CANVAS,
+        width: 800,
+        height: 600,
+        parent: document.body,
+        scene: {
+          create() {
+            this.add.text(400, 300, 'Hello Phaser!', {
+              fontSize: '48px',
+              color: '#00ff00',
+              fontFamily: 'Arial'
+            }).setOrigin(0.5);
+            
+            this.add.circle(200, 150, 50, 0xff0000);
+            this.add.circle(600, 150, 50, 0x0000ff);
+            this.add.rectangle(400, 500, 100, 60, 0x00ff00);
+          }
+        },
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        }
+      };
+      
+      new Phaser.Game(config);
+    } catch(e) {
+      document.getElementById('status').textContent = 'ERROR: ' + e.message;
+    }
+  </script>
+</body>
+</html>
